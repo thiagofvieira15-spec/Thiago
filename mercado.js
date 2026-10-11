@@ -71,7 +71,7 @@ function renderStatusMercado() {
   const cobertos = estado.ativos.filter((a) => !classe(a.classe).rendaFixa && dadoMercado(a.nome)).length;
   const variaveis = estado.ativos.filter((a) => !classe(a.classe).rendaFixa).length;
   el.innerHTML = `<span class="ok">●</span> Cotações e indicadores de <strong>${d.toLocaleDateString('pt-BR')} às ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</strong>
-    (${n('acoes')} ações, ${n('fiis')} FIIs e ${n('etfs')} ETFs). ${variaveis ? `${cobertos} de ${variaveis} ativos de renda variável da sua carteira foram atualizados.` : ''}`;
+    (${n('acoes')} ações, ${n('fiis')} FIIs${n('etfs') ? ` e ${n('etfs')} ETFs` : ''}). ${variaveis ? `${cobertos} de ${variaveis} ativos de renda variável da sua carteira foram atualizados.` : ''}`;
 }
 
 // ---------- Importação (Investidor10 e outros) ----------

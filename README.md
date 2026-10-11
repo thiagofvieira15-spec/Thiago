@@ -8,7 +8,7 @@ Site estático, sem dependências. Avalia sua carteira de investimentos de acord
 - **Análise de ativos**: avalia os fundamentos de cada ação (P/L, P/VP, dividend yield, ROE, margem, dívida, crescimento) e de cada FII (P/VP, dividend yield comparado ao CDI, vacância, número de imóveis ou CRIs), com nota de 0 a 10. Para ações, os dados vêm automaticamente da brapi.dev; para FIIs, a maior parte é preenchida à mão. Ativos com fundamentos fracos passam a "Avaliar" no diagnóstico e deixam de receber aportes no plano.
 - **Plano de ação**: recebe o valor do aporte do mês e, opcionalmente, permite vendas para rebalancear. Indica quanto vender de cada ativo, com uma estimativa de IR, e onde comprar. A reserva de emergência informada nunca entra nas vendas.
 - **Cenário**: indicadores (Selic, IPCA, juro real, dólar, PIB, Fed) e os sinais que inclinam a alocação. Os valores podem ser editados, e há uma tentativa de busca automática na API do Banco Central.
-- **Carteira**: cadastro de ativos, com backup em JSON. Busca automática de cotações de ações, FIIs, ETFs e BDRs da B3 pela [brapi.dev](https://brapi.dev), com token gratuito.
+- **Carteira**: cadastro de ativos, importação colando a tabela do Investidor10 (ou de qualquer planilha/CSV) e backup em JSON.
 - **Perfil**: questionário que define o perfil e a alocação-base.
 
 ## Como as recomendações são calculadas
@@ -16,6 +16,12 @@ Site estático, sem dependências. Avalia sua carteira de investimentos de acord
 1. O perfil (conservador, moderado ou arrojado) define uma alocação-base entre 7 classes de ativos.
 2. Cada sinal do cenário (juro real alto, ciclo de cortes, inflação acima do teto, dólar barato, aperto do Fed, eleições etc.) soma ou subtrai pontos percentuais por classe. O ajuste é limitado a ±8 pontos por classe.
 3. A carteira é comparada com essa meta. Desvios acima da tolerância e concentrações acima de 15% em um único ativo de renda variável geram as recomendações.
+
+## Cotações e indicadores automáticos (sem token)
+
+O GitHub Actions (`.github/workflows/dados.yml`) roda `scripts/atualizar_dados.py` em dias úteis (10h05, 13h05 e 18h35, horário de Brasília). O script baixa as tabelas públicas do Fundamentus (todas as ações e FIIs, com cotação e indicadores) e as cotações de ETFs, e grava tudo em `dados/mercado.json`. O site lê esse arquivo ao abrir. Para rodar na hora: aba **Actions** → *Atualizar cotações e indicadores* → **Run workflow**.
+
+O token da brapi.dev é opcional e serve só para cotações mais recentes durante o pregão.
 
 ## Atualizando o cenário
 
