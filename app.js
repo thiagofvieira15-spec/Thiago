@@ -301,6 +301,7 @@ function abrirAba(id) {
   document.querySelectorAll('.painel').forEach((p) => p.classList.toggle('ativo', p.id === id));
   if (id === 'diagnostico') renderDiagnostico();
   if (id === 'cenario') renderCenario();
+  if (id === 'analise') renderAnalise();
   window.scrollTo(0, 0);
 }
 
@@ -327,7 +328,8 @@ $('#form-ativo').addEventListener('submit', (e) => {
     pm,
     pa: paBruto === '' ? pm : parseFloat(paBruto),
   };
-  estado.ativos = id ? estado.ativos.map((a) => (a.id === id ? ativo : a)) : [...estado.ativos, ativo];
+  // Mantém os fundamentos já preenchidos ao editar
+  estado.ativos = id ? estado.ativos.map((a) => (a.id === id ? { ...ativo, fund: a.fund } : a)) : [...estado.ativos, ativo];
   salvar();
   limparForm();
   renderCarteira();
@@ -746,7 +748,23 @@ function diagnosticar(tol = 5) {
     } else if (l.desvio < -1) {
       acao = 'comprar'; motivo = `${c.curto} está levemente abaixo da meta. Pode receber aportes.`;
     }
-    return { a, peso, acao, motivo };
+
+    // Fundamentos (ações e FIIs) refinam a recomendação
+    const av = avaliarFundamentos(a);
+    if (av.nivel === 'fraco') {
+      const ruins = av.pontos.filter((p) => p.nivel < 0).map((p) => p.texto).slice(0, 2).join(' ');
+      if (acao === 'manter' || acao === 'comprar') {
+        acao = 'avaliar';
+        motivo = `Fundamentos fracos (${f1(av.nota)}/10). ${ruins} Antes de aportar mais, revise a tese. Se não melhorar, considere trocar por outro ativo da classe.`;
+      } else if (acao === 'reduzir') {
+        motivo += ` Os fundamentos também estão fracos (${f1(av.nota)}/10): priorize reduzir este ativo.`;
+      }
+    } else if (av.nivel === 'bom' && acao === 'comprar') {
+      motivo += ` Fundamentos sólidos (${f1(av.nota)}/10).`;
+    } else if (av.nivel === null && (av.tipo === 'acao' || av.tipo === 'fii') && acao === 'comprar') {
+      motivo += ' Confira os fundamentos na aba Análise de ativos antes de comprar.';
+    }
+    return { a, peso, acao, motivo, av };
   }).sort((x, y) => ORDEM_ACAO[x.acao] - ORDEM_ACAO[y.acao] || y.peso - x.peso);
 
   // Sugestões de inclusão: classes abaixo da meta com poucos ou nenhum ativo
@@ -840,7 +858,7 @@ function renderDiagnostico() {
       <div class="tabela-wrap"><table>
         <thead><tr><th>Ativo</th><th>Classe</th><th class="num">% carteira</th><th>Ação</th><th>Por quê</th></tr></thead>
         <tbody>${acoes.map((x) => `<tr>
-          <td><strong>${esc(x.a.nome)}</strong></td>
+          <td><strong>${esc(x.a.nome)}</strong>${x.av.nivel ? `<br><span class="motivo ${x.av.nivel === 'bom' ? 'pos' : x.av.nivel === 'fraco' ? 'neg' : ''}">Fundamentos ${f1(x.av.nota)}/10</span>` : ''}</td>
           <td>${classe(x.a.classe).curto}</td>
           <td class="num">${pct(x.peso)}</td>
           <td><span class="tag ${x.acao}">${ROTULO_ACAO[x.acao]}</span></td>
@@ -939,7 +957,10 @@ function gerarPlano(aporte, permitirVendas, tol, reserva = 0) {
 // Dentro da classe, direciona o dinheiro para os ativos menores, buscando pesos iguais.
 // Ativos que estão sendo vendidos não recebem compras.
 function distribuirNaClasse(classeId, valor, vendas) {
-  const ativos = estado.ativos.filter((a) => a.classe === classeId && !vendas.has(a.id));
+  let ativos = estado.ativos.filter((a) => a.classe === classeId && !vendas.has(a.id));
+  // Ativos com fundamentos fracos não recebem aportes quando há alternativas na classe
+  const saudaveis = ativos.filter((a) => avaliarFundamentos(a).nivel !== 'fraco');
+  if (saudaveis.length) ativos = saudaveis;
   if (!ativos.length || valor <= 0) return [];
   const atuais = ativos.map((a) => ({ a, v: valorAtivo(a), add: 0 }));
   const alvoIgual = (atuais.reduce((s, x) => s + x.v, 0) + valor) / atuais.length;
@@ -1058,6 +1079,7 @@ function renderTudo() {
   renderPerfil();
   renderCenario();
   renderDiagnostico();
+  renderAnalise();
   $('#resultado-plano').innerHTML = '';
 }
 

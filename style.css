@@ -152,3 +152,10 @@ ul.limpa { padding-left: 18px; margin: 6px 0; }
 ul.limpa li { margin: 4px 0; }
 .auto { color: var(--positivo); font-size: 0.6rem; vertical-align: middle; }
 [hidden] { display: none !important; }
+ul.pontos { list-style: none; padding-left: 0; }
+ul.pontos li { display: flex; gap: 8px; font-size: 0.88rem; }
+ul.pontos li span { color: var(--texto); }
+.form-fund { margin-bottom: 8px; }
+.form-fund { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
+#analise .resumo { grid-template-columns: repeat(3, 1fr); }
+#analise .kpi { padding: 10px; }
