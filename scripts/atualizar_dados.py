@@ -268,6 +268,75 @@ def etfs():
     return out
 
 
+def sgs(codigo):
+    """Último valor de uma série do Sistema Gerenciador de Séries do Banco Central."""
+    d = json.loads(baixar(f"https://api.bcb.gov.br/dados/serie/bcdata.sgs.{codigo}/dados/ultimos/1?formato=json"))
+    return float(str(d[-1]["valor"]).replace(",", ".")), d[-1]["data"]
+
+
+def focus(indicador, ano):
+    """Mediana mais recente do Boletim Focus para o ano."""
+    filtro = urllib.parse.quote(f"Indicador eq '{indicador}' and DataReferencia eq '{ano}' and baseCalculo eq 0")
+    url = ("https://olinda.bcb.gov.br/olinda/servico/Expectativas/versao/v1/odata/ExpectativasMercadoAnuais"
+           f"?$top=1&$filter={filtro}&$orderby=Data%20desc&$format=json&$select=Data,Mediana")
+    v = json.loads(baixar(url))["value"]
+    if not v:
+        raise RuntimeError(f"Focus sem dados para {indicador}")
+    return float(v[0]["Mediana"])
+
+
+def taxa_ipca_longo():
+    """Taxa de compra do Tesouro IPCA+ (sem cupons) de vencimento mais longo, no dia mais recente."""
+    url = ("https://www.tesourotransparente.gov.br/ckan/dataset/df56aa42-484a-4a59-8184-7676580c81e3/"
+           "resource/796d2059-14e9-44e3-80c9-2d9e30b405c1/download/PrecoTaxaTesouroDireto.csv")
+    linhas = baixar(url).splitlines()
+    cab = [c.strip() for c in linhas[0].split(";")]
+    iT, iV, iD, iTx = (cab.index(c) for c in ("Tipo Titulo", "Data Vencimento", "Data Base", "Taxa Compra Manha"))
+    melhor = None
+    for l in linhas[1:]:
+        c = l.split(";")
+        if len(c) <= iTx or c[iT].strip() != "Tesouro IPCA+":
+            continue
+        base = datetime.strptime(c[iD], "%d/%m/%Y")
+        venc = datetime.strptime(c[iV], "%d/%m/%Y")
+        taxa = num(c[iTx])
+        if not taxa:
+            continue
+        chave = (base, venc)
+        if melhor is None or chave > melhor[0]:
+            melhor = (chave, taxa)
+    if not melhor:
+        raise RuntimeError("Tesouro IPCA+ não encontrado")
+    return melhor[1]
+
+
+def macro():
+    out = {}
+    ano = datetime.now().year
+    tarefas = {
+        "selic": lambda: sgs(432)[0],          # meta Selic
+        "ipca12m": lambda: sgs(13522)[0],      # IPCA acumulado em 12 meses
+        "dolar": lambda: sgs(1)[0],            # dólar PTAX (venda)
+        "selicFocusFimAno": lambda: focus("Selic", ano),
+        "ipcaFocusAno": lambda: focus("IPCA", ano),
+        "pibFocusAno": lambda: focus("PIB Total", ano),
+        "dolarFocusFimAno": lambda: focus("Câmbio", ano),
+        "taxaIpcaLongo": taxa_ipca_longo,
+    }
+    for k, fn in tarefas.items():
+        try:
+            out[k] = round(fn(), 2)
+        except Exception as e:
+            print(f"aviso: macro {k}: {e}", file=sys.stderr)
+    if "selic" in out and "selicFocusFimAno" in out:
+        dif = out["selicFocusFimAno"] - out["selic"]
+        out["tendenciaSelic"] = "corte" if dif <= -0.2 else "alta" if dif >= 0.2 else "estavel"
+    if out:
+        out["dataReferencia"] = datetime.now(timezone.utc).date().isoformat()
+    print(f"macro: {out}")
+    return out
+
+
 def main():
     anterior = {}
     if SAIDA.exists():
@@ -283,6 +352,11 @@ def main():
             print(f"ERRO em {nome}: {e}", file=sys.stderr)
             resultado[nome] = anterior.get(nome, {})
             resultado["fontes"][nome] = anterior.get("fontes", {}).get(nome, fonte) + " (dados anteriores)"
+    try:
+        resultado["macro"] = macro() or anterior.get("macro", {})
+    except Exception as e:
+        print(f"ERRO em macro: {e}", file=sys.stderr)
+        resultado["macro"] = anterior.get("macro", {})
     if not any(resultado[k] for k in ("acoes", "fiis", "etfs")):
         sys.exit("nenhuma fonte respondeu")
     SAIDA.parent.mkdir(exist_ok=True)

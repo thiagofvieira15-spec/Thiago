@@ -139,7 +139,9 @@ function salvar() {
 }
 
 function cenario() {
-  return Object.assign({}, CENARIO_PADRAO, estado.cenario || {});
+  // Ordem: dados de referência < dados automáticos (Banco Central/Tesouro) < ajustes feitos pelo usuário
+  const auto = typeof MERCADO !== 'undefined' && MERCADO?.macro ? MERCADO.macro : {};
+  return Object.assign({}, CENARIO_PADRAO, auto, estado.cenario || {});
 }
 
 // ---------- Utilidades ----------
@@ -448,8 +450,11 @@ $('#importar').addEventListener('change', async (e) => {
     if (!Array.isArray(dados.ativos)) throw new Error('formato');
     estado = Object.assign(estadoInicial(), dados);
     if (estado.alvo) for (const c of CLASSES) if (estado.alvo[c.id] === undefined) estado.alvo[c.id] = 0;
+    // Aplica na hora as cotações e indicadores automáticos aos ativos importados
+    if (typeof MERCADO !== 'undefined' && MERCADO) aplicarMercado();
     salvar();
     renderTudo();
+    if (typeof renderStatusMercado === 'function') renderStatusMercado();
     alert('Backup importado com sucesso.');
   } catch (err) {
     alert('Arquivo inválido.');
@@ -664,6 +669,7 @@ function renderCenario() {
   const { sinais, jurosReal } = sinaisCenario(cx);
   const aj = alvoAjustado();
   const editado = estado.cenario && Object.keys(estado.cenario).length > 0;
+  const MERCADO = typeof window.MERCADO_ATUAL !== 'undefined' ? window.MERCADO_ATUAL : null;
 
   const kpis = [
     ['Selic', `${pct(cx.selic, 2)}`, ROTULO_TENDENCIA[cx.tendenciaSelic]],
@@ -680,7 +686,8 @@ function renderCenario() {
       <div class="resumo">
         ${kpis.map(([r, v, s]) => `<div class="kpi"><div class="rotulo">${r}</div><div class="valor">${v}</div><div class="rotulo">${esc(s)}</div></div>`).join('')}
       </div>
-      ${!editado && cx.resumo ? `<ul class="limpa">${cx.resumo.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>` : ''}
+      ${MERCADO?.macro ? `<p class="dica"><span class="ok">●</span> Selic, IPCA, dólar, expectativas do Boletim Focus e taxa do Tesouro IPCA+ atualizados automaticamente (Banco Central e Tesouro Direto). Juros dos EUA, tendências e riscos seguem o comentário de ${dataBR(CENARIO_PADRAO.dataReferencia)}.</p>` : ''}
+      ${!editado && cx.resumo ? `<p class="dica" style="margin-bottom:0">Comentário de ${dataBR(CENARIO_PADRAO.dataReferencia)}:</p><ul class="limpa">${cx.resumo.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>` : ''}
     </div>
     <div class="card">
       <h2>Como o cenário afeta a alocação</h2>

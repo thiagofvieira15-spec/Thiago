@@ -17,8 +17,10 @@ async function carregarMercado() {
     aplicarMercado();
     salvar();
   }
+  window.MERCADO_ATUAL = MERCADO;
   renderStatusMercado();
   renderCarteira();
+  renderCenario();
   if (estado.perfil) renderDiagnostico();
   renderAnalise();
 }
