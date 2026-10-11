@@ -471,7 +471,7 @@ $('#limpar').addEventListener('click', () => {
 
 // ---------- Cotações (brapi.dev) ----------
 
-const TICKER_B3 = /^[A-Z]{4}\d{1,2}F?$/;
+const TICKER_B3 = /^[A-Z][A-Z0-9]{3}\d{1,2}F?$/;
 
 function tickerCotavel(a) {
   return !classe(a.classe)?.rendaFixa && TICKER_B3.test(a.nome);

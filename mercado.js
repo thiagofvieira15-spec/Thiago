@@ -117,7 +117,7 @@ function numeroBR(s) {
   return parseFloat(t);
 }
 
-const RE_TICKER = /^[A-Z]{4}\d{1,2}F?$/;
+const RE_TICKER = /^[A-Z][A-Z0-9]{3}\d{1,2}F?$/;
 const RE_TESOURO = /Tesouro\s+(Selic|IPCA\+?|Prefixado|Renda\+|Educa\+)(\s+com\s+Juros\s+Semestrais)?(\s+Aposentadoria\s+Extra)?\s+\d{4}/i;
 
 function interpretarTexto(texto) {

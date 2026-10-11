@@ -28,7 +28,7 @@ function tipoAtivo(a) {
   if (classe(a.classe).rendaFixa) return 'rf';
   if (ETFS.has(ticker) || ETFS_EUA.has(a.nome)) return 'etf';
   if (a.classe === 'fiis') return 'fii';
-  if (a.classe === 'acoes' && /^[A-Z]{4}\d{1,2}$/.test(ticker)) return 'acao';
+  if (a.classe === 'acoes' && /^[A-Z][A-Z0-9]{3}\d{1,2}$/.test(ticker)) return 'acao';
   return 'outro';
 }
 
