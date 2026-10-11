@@ -35,23 +35,51 @@ function tipoAtivo(a) {
 // Cada indicador: chave, rótulo, unidade e função que devolve [nível, texto] (nível 1 bom, 0 neutro, -1 ruim)
 const INDICADORES = {
   acao: [
-    ['pl', 'P/L', 'x', (v) => v < 0 ? [-1, 'P/L negativo: a empresa teve prejuízo nos últimos 12 meses.']
-      : v <= 12 ? [1, `P/L de ${f1(v)}: preço baixo em relação ao lucro.`]
-      : v <= 20 ? [0, `P/L de ${f1(v)}: preço moderado em relação ao lucro.`]
-      : [-1, `P/L de ${f1(v)}: preço alto em relação ao lucro. Exige crescimento forte para se justificar.`]],
-    ['pvp', 'P/VP', 'x', (v) => v <= 0 ? [-1, 'Patrimônio líquido negativo.']
-      : v <= 1.5 ? [1, `P/VP de ${f1(v)}: negociada perto do valor patrimonial.`]
-      : v <= 3 ? [0, `P/VP de ${f1(v)}: prêmio moderado sobre o patrimônio.`]
-      : [-1, `P/VP de ${f1(v)}: prêmio alto sobre o patrimônio. Comum em empresas de alto retorno, mas aumenta o risco.`]],
+    ['pl', 'P/L', 'x', (v, a) => {
+      if (v < 0) return [-1, 'P/L negativo: a empresa teve prejuízo nos últimos 12 meses.'];
+      const m = medSetor(a, 'pl');
+      if (m) {
+        if (v > 40) return [-1, `P/L de ${f1(v)}: muito alto, mesmo para o setor (mediana ${f1(m)}).`];
+        return v <= m * 0.8 ? [1, `P/L de ${f1(v)}: abaixo da mediana do setor (${f1(m)}). Mais barata que as concorrentes.`]
+          : v <= m * 1.25 ? [0, `P/L de ${f1(v)}: em linha com a mediana do setor (${f1(m)}).`]
+          : [-1, `P/L de ${f1(v)}: acima da mediana do setor (${f1(m)}). O mercado já cobra pelo crescimento esperado.`];
+      }
+      return v <= 12 ? [1, `P/L de ${f1(v)}: preço baixo em relação ao lucro.`]
+        : v <= 20 ? [0, `P/L de ${f1(v)}: preço moderado em relação ao lucro.`]
+        : [-1, `P/L de ${f1(v)}: preço alto em relação ao lucro. Exige crescimento forte para se justificar.`];
+    }],
+    ['pvp', 'P/VP', 'x', (v, a) => {
+      if (v <= 0) return [-1, 'Patrimônio líquido negativo.'];
+      const m = medSetor(a, 'pvp');
+      if (m) {
+        return v <= m * 0.8 ? [1, `P/VP de ${f1(v)}: abaixo da mediana do setor (${f1(m)}).`]
+          : v <= m * 1.25 ? [0, `P/VP de ${f1(v)}: em linha com a mediana do setor (${f1(m)}).`]
+          : [-1, `P/VP de ${f1(v)}: acima da mediana do setor (${f1(m)}).`];
+      }
+      return v <= 1.5 ? [1, `P/VP de ${f1(v)}: negociada perto do valor patrimonial.`]
+        : v <= 3 ? [0, `P/VP de ${f1(v)}: prêmio moderado sobre o patrimônio.`]
+        : [-1, `P/VP de ${f1(v)}: prêmio alto sobre o patrimônio. Comum em empresas de alto retorno, mas aumenta o risco.`];
+    }],
     ['dy', 'Dividend yield (12m)', '%', (v) => v >= 7 ? [1, `Dividend yield de ${f1(v)}%: boa geração de renda.`]
       : v >= 3 ? [0, `Dividend yield de ${f1(v)}%: renda moderada.`]
       : [0, `Dividend yield de ${f1(v)}%: paga pouco. Normal para empresas que reinvestem para crescer.`]],
-    ['roe', 'ROE', '%', (v) => v >= 15 ? [1, `ROE de ${f1(v)}%: empresa muito rentável.`]
-      : v >= 8 ? [0, `ROE de ${f1(v)}%: rentabilidade razoável.`]
-      : [-1, `ROE de ${f1(v)}%: rentabilidade baixa. Com a Selic em ${f2(cenario().selic)}%, a renda fixa rende mais com menos risco.`]],
-    ['margem', 'Margem líquida', '%', (v) => v >= 10 ? [1, `Margem líquida de ${f1(v)}%: negócio eficiente.`]
-      : v >= 0 ? [0, `Margem líquida de ${f1(v)}%: margens apertadas.`]
-      : [-1, `Margem líquida negativa (${f1(v)}%): a empresa opera com prejuízo.`]],
+    ['roe', 'ROE', '%', (v, a) => {
+      const m = medSetor(a, 'roe');
+      const comp = m ? ` (mediana do setor: ${f1(m)}%)` : '';
+      if (v >= 20 || (m && v >= m * 1.15 && v >= 10)) return [1, `ROE de ${f1(v)}%: empresa muito rentável${comp}.`];
+      if (v < 5 || (m && v < m * 0.7)) return [-1, `ROE de ${f1(v)}%: rentabilidade baixa${comp}. Com a Selic em ${f2(cenario().selic)}%, a renda fixa rende mais com menos risco.`];
+      return [0, `ROE de ${f1(v)}%: rentabilidade razoável${comp}.`];
+    }],
+    ['margem', 'Margem líquida', '%', (v, a) => {
+      if (v < 0) return [-1, `Margem líquida negativa (${f1(v)}%): a empresa opera com prejuízo.`];
+      const m = medSetor(a, 'margem');
+      if (m) {
+        return v >= m * 1.15 ? [1, `Margem líquida de ${f1(v)}%: acima da mediana do setor (${f1(m)}%).`]
+          : v >= m * 0.75 ? [0, `Margem líquida de ${f1(v)}%: em linha com o setor (${f1(m)}%).`]
+          : [-1, `Margem líquida de ${f1(v)}%: abaixo do setor (${f1(m)}%), menos eficiente que as concorrentes.`];
+      }
+      return v >= 10 ? [1, `Margem líquida de ${f1(v)}%: negócio eficiente.`] : [0, `Margem líquida de ${f1(v)}%: margens apertadas.`];
+    }],
     ['divPl', 'Dívida líquida / Patrimônio', 'x', (v, a) => a.fund?.banco ? [0, 'Banco: o endividamento faz parte do negócio e não é avaliado.']
       : v < 0 ? [1, 'Caixa líquido: a empresa tem mais dinheiro em caixa do que dívidas.']
       : v <= 1 ? [1, `Dívida líquida/patrimônio de ${f1(v)}: endividamento controlado.`]
@@ -120,6 +148,42 @@ function fundAtivo(a) {
   return Object.assign({}, ETF_INFO[a.nome.replace(/F$/, '')] || {}, a.fund || {});
 }
 
+// Mediana do setor da ação (calculada pelo robô a partir de todas as ações do mesmo setor)
+function medSetor(a, k) {
+  const setores = typeof MERCADO !== 'undefined' && MERCADO?.setores;
+  const st = setores && a.fund?.setor && setores[a.fund.setor];
+  return st && Number.isFinite(st[k]) && st[k] > 0 ? st[k] : null;
+}
+
+// Preço-teto: Graham (valor intrínseco) e Bazin (dividendos / 6%)
+const TAXA_BAZIN = 6;
+function valuation(a) {
+  const tipo = tipoAtivo(a);
+  const f = fundAtivo(a);
+  const p = preco(a);
+  if (!p) return null;
+  if (tipo === 'acao') {
+    const lpa = f.pl > 0 ? p / f.pl : null;
+    const vpa = f.pvp > 0 ? p / f.pvp : null;
+    const graham = lpa && vpa ? Math.sqrt(22.5 * lpa * vpa) : null;
+    const bazin = f.dy > 0 ? ((f.dy / 100) * p) / (TAXA_BAZIN / 100) : null;
+    if (!graham && !bazin) return null;
+    return { tipo, p, graham, bazin };
+  }
+  if (tipo === 'fii' && f.pvp > 0) return { tipo, p, vp: p / f.pvp };
+  return null;
+}
+
+function pontoValuation(a) {
+  const v = valuation(a);
+  if (!v || v.tipo !== 'acao') return null;
+  const teto = Math.max(v.graham || 0, v.bazin || 0);
+  const margem = (teto / v.p - 1) * 100;
+  if (margem >= 0) return [1, `Preço abaixo do preço-teto (${fmt(teto)}): margem de segurança de ${f1(margem)}%.`];
+  if (margem >= -33) return [0, `Preço ${f1(-margem)}% acima do maior preço-teto (${fmt(teto)}). Sem margem de segurança, mas não exagerado.`];
+  return [-1, `Preço ${f1(-margem)}% acima do maior preço-teto (${fmt(teto)}). Pelos métodos de Graham e Bazin, está cara.`];
+}
+
 const f1 = (v) => Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 1 });
 const f2 = (v) => Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -135,6 +199,8 @@ function avaliarFundamentos(a) {
       pontos.push({ nivel, texto });
     }
   }
+  const pv = tipo === 'acao' ? pontoValuation(a) : null;
+  if (pv) pontos.push({ nivel: pv[0], texto: pv[1] });
   if (pontos.length < 2) return { tipo, nivel: null, pontos, preenchidos: pontos.length };
   const media = pontos.reduce((s, p) => s + p.nivel, 0) / pontos.length;
   const nota = Math.round((media + 1) * 5 * 10) / 10; // 0 a 10
@@ -264,6 +330,31 @@ function renderAnalise() {
     <p class="dica">Os critérios são referências gerais. Setores diferentes têm padrões diferentes: bancos têm P/VP e dívida próprios, empresas de crescimento têm P/L mais alto. Use a análise como ponto de partida, não como veredito.</p>`;
 }
 
+function renderValuation(a) {
+  const v = valuation(a);
+  if (!v) return '';
+  const linha = (rot, val, dica) => {
+    if (!val) return '';
+    const m = (val / v.p - 1) * 100;
+    return `<tr><td>${rot}<br><span class="motivo">${dica}</span></td><td class="num">${fmt(val)}</td>
+      <td class="num ${m >= 0 ? 'pos' : 'neg'}">${m >= 0 ? '+' : ''}${f1(m)}%</td></tr>`;
+  };
+  if (v.tipo === 'fii') {
+    return `<div class="tabela-wrap"><table>
+      <thead><tr><th>Valor de referência</th><th class="num">Valor</th><th class="num">Em relação ao preço</th></tr></thead>
+      <tbody>${linha('Valor patrimonial por cota', v.vp, 'Quanto valem os imóveis/títulos do fundo por cota')}</tbody>
+    </table></div>`;
+  }
+  return `<div class="tabela-wrap"><table>
+    <thead><tr><th>Preço-teto (preço atual ${fmt(v.p)})</th><th class="num">Valor</th><th class="num">Margem</th></tr></thead>
+    <tbody>
+      ${linha('Graham', v.graham, '√(22,5 × LPA × VPA): valor justo para empresas de lucro estável')}
+      ${linha(`Bazin (${TAXA_BAZIN}%)`, v.bazin, `Dividendos por ação ÷ ${TAXA_BAZIN}%: para quem busca renda`)}
+    </tbody>
+  </table></div>
+  <p class="dica">Margem positiva = preço abaixo do teto. Graham subestima empresas de crescimento (ex.: WEGE3); Bazin só faz sentido para boas pagadoras de dividendos. Com a Selic em ${f2(cenario().selic)}%, um dividend yield de ${TAXA_BAZIN}% é modesto, então use o Bazin com cautela.</p>`;
+}
+
 function renderCartaoAtivo(a, av) {
   const peso = totais().total ? (valorAtivo(a) / totais().total) * 100 : 0;
   const f = fundAtivo(a);
@@ -282,6 +373,7 @@ function renderCartaoAtivo(a, av) {
       </label>`).join('')}
       ${av.tipo === 'acao' ? `<label class="check"><input type="checkbox" data-k="banco" ${f.banco ? 'checked' : ''}> É banco ou seguradora</label>` : ''}
     </form>
+    ${renderValuation(a)}
     ${av.pontos.length ? `<ul class="limpa pontos">${av.pontos.map((p) => `<li class="${p.nivel > 0 ? 'pos' : p.nivel < 0 ? 'neg' : ''}">${p.nivel > 0 ? '▲' : p.nivel < 0 ? '▼' : '●'} <span>${esc(p.texto)}</span></li>`).join('')}</ul>` : ''}
     ${av.tipo === 'etf' && info?.eua ? `<div class="alerta">ETF domiciliado nos EUA: 30% de imposto retido na fonte sobre os dividendos; no Brasil, 15% de IR sobre o ganho na declaração anual (Lei 14.754/2023). Acima de US$ 60 mil investidos nos EUA, há risco de imposto sobre herança americano: para patrimônio grande, avalie ETFs equivalentes domiciliados na Irlanda (ex.: VWRA).</div>` : ''}
     ${av.tipo === 'etf' ? '<p class="dica">Dados de referência dos gestores (aproximados). Confira no site do fundo e corrija se necessário.</p>' : ''}

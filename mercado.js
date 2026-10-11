@@ -60,7 +60,7 @@ function aplicarMercado() {
       if (manuais.includes(k)) continue;
       if (Number.isFinite(m.d[k])) a.fund[k] = m.d[k];
     }
-    if (m.d.segmento) a.fund.setor = m.d.segmento;
+    if (m.d.segmento || m.d.setor) a.fund.setor = m.d.segmento || m.d.setor;
     if (m.d.banco) a.fund.banco = true;
     a.fund.atualizadoEm = quando;
   }
