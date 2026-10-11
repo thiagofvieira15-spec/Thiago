@@ -1,0 +1,14 @@
+{
+  "name": "Minha Carteira",
+  "short_name": "Carteira",
+  "description": "Avaliação da carteira no cenário atual, com sugestões de compra, venda e aportes",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f6f8",
+  "theme_color": "#1f6feb",
+  "lang": "pt-BR",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

@@ -20,6 +20,12 @@ Site estático, sem dependências. Avalia sua carteira de investimentos de acord
 
 Os dados de referência ficam em `cenario.js`. Atualize esse arquivo periodicamente (depois de reuniões do Copom e do Fed, ou de um novo Boletim Focus) ou edite os valores pela aba **Cenário**.
 
+## Acesso online
+
+Publicado via GitHub Pages em https://thiagofvieira15-spec.github.io/Thiago/
+
+No celular, abra o link e use **Adicionar à tela inicial** para usar como um aplicativo.
+
 ## Como usar
 
 Abra o `index.html` no navegador. Os dados ficam no `localStorage` do navegador.
