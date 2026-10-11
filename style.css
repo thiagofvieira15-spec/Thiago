@@ -159,3 +159,5 @@ ul.pontos li span { color: var(--texto); }
 .form-fund { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
 #analise .resumo { grid-template-columns: repeat(3, 1fr); }
 #analise .kpi { padding: 10px; }
+textarea { font: inherit; width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--borda); background: var(--bg); color: var(--texto); resize: vertical; }
+td input, td select { padding: 4px 6px; }

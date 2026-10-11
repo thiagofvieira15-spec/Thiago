@@ -10,6 +10,7 @@ import json
 import re
 import sys
 import time
+import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from html.parser import HTMLParser
@@ -115,6 +116,11 @@ def acoes():
         if not d["preco"] or not d["liq"]:
             continue
         d.pop("liq")
+        # Bancos e seguradoras aparecem com margem e dívida zeradas (não se aplicam)
+        if not d.get("margem") and not d.get("divPl"):
+            d.pop("margem", None)
+            d.pop("divPl", None)
+            d["banco"] = True
         out[l[c["papel"]].upper()] = {k: v for k, v in d.items() if v is not None}
     return out
 
@@ -150,26 +156,68 @@ def fiis():
 
 
 def etf_yahoo_lote(tickers):
-    """Uma única requisição para todos os ETFs (endpoint spark)."""
+    """Yahoo exige cookie de sessão + 'crumb'; depois uma requisição traz todos os ETFs."""
+    import http.cookiejar
+    jar = http.cookiejar.CookieJar()
+    abridor = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+    cab = {"User-Agent": UA, "Accept": "*/*"}
+
+    def get(url):
+        with abridor.open(urllib.request.Request(url, headers=cab), timeout=30) as r:
+            return r.read().decode("utf-8", errors="replace")
+
+    try:
+        get("https://fc.yahoo.com/")
+    except Exception:
+        pass  # responde 404, mas grava o cookie
+    crumb = get("https://query2.finance.yahoo.com/v1/test/getcrumb").strip()
+    if not crumb or "<" in crumb:
+        raise RuntimeError("crumb inválido")
     out = {}
-    for i in range(0, len(tickers), 20):
-        lote = ",".join(f"{t}.SA" for t in tickers[i:i + 20])
-        d = json.loads(baixar(f"https://query2.finance.yahoo.com/v7/finance/spark?symbols={lote}&range=5d&interval=1d"))
-        for r in d.get("spark", {}).get("result", []) or []:
-            resp = (r.get("response") or [{}])[0]
-            meta = resp.get("meta", {})
-            preco = meta.get("regularMarketPrice")
-            ant = meta.get("chartPreviousClose") or meta.get("previousClose")
+    for i in range(0, len(tickers), 40):
+        lote = ",".join(f"{t}.SA" for t in tickers[i:i + 40])
+        d = json.loads(get(f"https://query2.finance.yahoo.com/v7/finance/quote?symbols={lote}&crumb={urllib.parse.quote(crumb)}"))
+        for q in d.get("quoteResponse", {}).get("result", []):
+            preco = q.get("regularMarketPrice")
             if preco:
                 item = {"preco": round(preco, 4)}
-                if ant:
-                    item["varDia"] = round((preco / ant - 1) * 100, 2)
-                out[r["symbol"].replace(".SA", "")] = item
+                if q.get("regularMarketChangePercent") is not None:
+                    item["varDia"] = round(q["regularMarketChangePercent"], 2)
+                out[q["symbol"].replace(".SA", "")] = item
     return out
 
 
+def procurar(obj, chave):
+    """Busca recursiva de uma chave em JSON aninhado."""
+    if isinstance(obj, dict):
+        if chave in obj:
+            return obj[chave]
+        obj = list(obj.values())
+    if isinstance(obj, list):
+        for v in obj:
+            r = procurar(v, chave)
+            if r is not None:
+                return r
+    return None
+
+
+def etf_b3(t):
+    d = json.loads(baixar(f"https://cotacao.b3.com.br/mds/api/v1/instrumentQuotation/{t}"))
+    preco = procurar(d, "curPrc")
+    if not preco:
+        raise RuntimeError("preço não encontrado")
+    item = {"preco": round(float(preco), 4)}
+    var = procurar(d, "prcFlcn")
+    if var is not None:
+        item["varDia"] = round(float(var), 2)
+    return item
+
+
 def etf_google(t):
-    html = baixar(f"https://www.google.com/finance/quote/{t}:BVMF?hl=en")
+    req = urllib.request.Request(f"https://www.google.com/finance/quote/{t}:BVMF?hl=en",
+                                 headers={"User-Agent": UA, "Cookie": "CONSENT=YES+cb; SOCS=CAI"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        html = r.read().decode("utf-8", errors="replace")
     m = re.search(r'data-last-price="([\d.]+)"', html)
     if not m:
         raise RuntimeError("preço não encontrado")
@@ -201,7 +249,7 @@ def etfs():
         print(f"etfs via Yahoo: {len(out)}")
     except Exception as e:
         print(f"aviso: Yahoo indisponível: {e}", file=sys.stderr)
-    for fonte in (etf_google, etf_statusinvest):
+    for fonte in (etf_b3, etf_google, etf_statusinvest):
         faltando = [t for t in tickers if t not in out]
         if not faltando:
             break

@@ -408,6 +408,7 @@ function renderCarteira() {
   }).join('');
   $('#vazio').hidden = ativos.length > 0;
   $('#tabela-ativos').hidden = ativos.length === 0;
+  if (typeof renderStatusMercado === 'function') renderStatusMercado();
 }
 
 $('#exportar').addEventListener('click', () => {
