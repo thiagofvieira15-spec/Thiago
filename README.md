@@ -7,6 +7,8 @@ Site estático, sem dependências. Avalia sua carteira de investimentos de acord
 - **Diagnóstico**: nota de 0 a 100, alocação atual comparada com a meta ajustada ao cenário, ação sugerida para cada ativo (vender, reduzir, comprar mais, manter) com o motivo, e o que incluir na carteira.
 - **Análise de ativos**: avalia ETFs (taxa, diversificação, países, P/L médio; inclui ETFs americanos como o VT) e os fundamentos de cada ação (P/L, P/VP, dividend yield, ROE, margem, dívida, crescimento) e de cada FII (P/VP, dividend yield comparado ao CDI, vacância, número de imóveis ou CRIs), com nota de 0 a 10. Para ações, os dados vêm automaticamente da brapi.dev; para FIIs, a maior parte é preenchida à mão. P/L, P/VP, ROE e margem das ações são comparados com a mediana do setor (calculada automaticamente). Cada ação tem preço-teto por Graham e Bazin, e cada FII tem o valor patrimonial por cota. Ativos com fundamentos fracos passam a "Avaliar" no diagnóstico e deixam de receber aportes no plano.
 - **Plano de ação**: recebe o valor do aporte do mês e, opcionalmente, permite vendas para rebalancear. Indica quanto vender de cada ativo, com uma estimativa de IR, e onde comprar. A reserva de emergência informada nunca entra nas vendas.
+- **Evolução**: registro diário do patrimônio com gráfico, rentabilidade comparada ao CDI (descontando aportes) e controle de proventos (manual ou colando o extrato), com total de 12 meses e gráfico mensal.
+- **Parecer por IA** (aba Diagnóstico): um texto analisando a carteira, gerado pelo Claude com todos os dados do site. Usa a chave de API da própria pessoa, salva só no navegador.
 - **Cenário**: indicadores (Selic, IPCA, juro real, dólar, PIB, Fed) e os sinais que inclinam a alocação. Os valores podem ser editados, e há uma tentativa de busca automática na API do Banco Central.
 - **Carteira**: cadastro de ativos, importação colando a tabela do Investidor10 (ou de qualquer planilha/CSV) e backup em JSON.
 - **Perfil**: questionário que define o perfil e a alocação-base. Considera também a situação de trabalho (ex.: funcionário público) e a moradia (ex.: mora com os pais) para medir a capacidade de assumir risco e o tamanho da reserva de emergência.
@@ -19,7 +21,7 @@ Site estático, sem dependências. Avalia sua carteira de investimentos de acord
 
 ## Cotações e indicadores automáticos (sem token)
 
-O GitHub Actions (`.github/workflows/dados.yml`) roda `scripts/atualizar_dados.py` em dias úteis (10h05, 13h05 e 18h35, horário de Brasília). O script baixa as tabelas públicas do Fundamentus (todas as ações e FIIs, com cotação e indicadores) e as cotações de ETFs, e grava tudo em `dados/mercado.json`. O site lê esse arquivo ao abrir. Para rodar na hora: aba **Actions** → *Atualizar cotações e indicadores* → **Run workflow**.
+O GitHub Actions (`.github/workflows/dados.yml`) roda `scripts/atualizar_dados.py` em dias úteis (10h05, 13h05 e 18h35, horário de Brasília). O script baixa Selic, IPCA, dólar e Focus (Banco Central), a taxa do Tesouro IPCA+, juros e inflação dos EUA (FRED), cotações de ETFs (B3 e Nasdaq), o setor de cada ação e as tabelas públicas do Fundamentus (todas as ações e FIIs, com cotação e indicadores) e as cotações de ETFs, e grava tudo em `dados/mercado.json`. O site lê esse arquivo ao abrir. Para rodar na hora: aba **Actions** → *Atualizar cotações e indicadores* → **Run workflow**.
 
 O token da brapi.dev é opcional e serve só para cotações mais recentes durante o pregão.
 

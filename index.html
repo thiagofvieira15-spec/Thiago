@@ -20,6 +20,7 @@
       <button class="aba ativa" data-aba="diagnostico">Diagnóstico</button>
       <button class="aba" data-aba="analise">Análise de ativos</button>
       <button class="aba" data-aba="plano">Plano de ação</button>
+      <button class="aba" data-aba="evolucao">Evolução</button>
       <button class="aba" data-aba="cenario">Cenário</button>
       <button class="aba" data-aba="carteira">Carteira</button>
       <button class="aba" data-aba="perfil">Perfil</button>
@@ -30,6 +31,7 @@
     <!-- DIAGNOSTICO -->
     <section id="diagnostico" class="painel ativo">
       <div id="diagnostico-conteudo"></div>
+      <div class="card" id="ia-card"></div>
     </section>
 
     <!-- ANALISE DE ATIVOS -->
@@ -59,6 +61,11 @@
         <p class="dica">Sem vendas, o aporte vai para as classes mais abaixo da meta ajustada ao cenário. Com vendas, também são indicados ativos para reduzir ou vender: concentrações excessivas e classes muito acima da meta.</p>
       </div>
       <div id="resultado-plano"></div>
+    </section>
+
+    <!-- EVOLUCAO -->
+    <section id="evolucao" class="painel">
+      <div id="evolucao-conteudo"></div>
     </section>
 
     <!-- CENARIO -->
@@ -197,5 +204,7 @@
   <script src="fundamentos.js"></script>
   <script src="app.js"></script>
   <script src="mercado.js"></script>
+  <script src="evolucao.js"></script>
+  <script src="ia.js"></script>
 </body>
 </html>

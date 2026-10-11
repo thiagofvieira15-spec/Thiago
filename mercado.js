@@ -18,6 +18,7 @@ async function carregarMercado() {
     salvar();
   }
   window.MERCADO_ATUAL = MERCADO;
+  if (MERCADO && typeof registrarHistorico === 'function') registrarHistorico();
   renderStatusMercado();
   renderCarteira();
   renderCenario();

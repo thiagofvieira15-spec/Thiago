@@ -406,6 +406,41 @@ def taxa_ipca_longo():
     return melhor[1]
 
 
+def fred(serie):
+    """Série do FRED (Federal Reserve de St. Louis) em CSV público, sem chave. Retorna [(data, valor)]."""
+    linhas = baixar(f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={serie}").strip().splitlines()[1:]
+    out = []
+    for l in linhas:
+        d, _, v = l.partition(",")
+        try:
+            out.append((datetime.strptime(d, "%Y-%m-%d"), float(v)))
+        except ValueError:
+            pass  # valores ausentes vêm como "."
+    if not out:
+        raise RuntimeError(f"FRED {serie} vazio")
+    return out
+
+
+def macro_eua(out):
+    """Juros (teto da meta dos Fed Funds), tendência e núcleo do PCE em 12 meses."""
+    try:
+        fed = fred("DFEDTARU")
+        atual_d, atual = fed[-1]
+        antes = [v for d, v in fed if (atual_d - d).days >= 120]
+        out["fedFunds"] = round(atual, 2)
+        if antes:
+            dif = atual - antes[-1]
+            out["tendenciaFed"] = "alta" if dif > 0.1 else "corte" if dif < -0.1 else "estavel"
+    except Exception as e:
+        print(f"aviso: macro fedFunds: {e}", file=sys.stderr)
+    try:
+        pce = fred("PCEPILFE")
+        if len(pce) >= 13:
+            out["inflacaoEUA"] = round((pce[-1][1] / pce[-13][1] - 1) * 100, 2)
+    except Exception as e:
+        print(f"aviso: macro inflacaoEUA: {e}", file=sys.stderr)
+
+
 def macro():
     out = {}
     ano = datetime.now().year
@@ -424,6 +459,7 @@ def macro():
             out[k] = round(fn(), 2)
         except Exception as e:
             print(f"aviso: macro {k}: {e}", file=sys.stderr)
+    macro_eua(out)
     if "selic" in out and "selicFocusFimAno" in out:
         dif = out["selicFocusFimAno"] - out["selic"]
         out["tendenciaSelic"] = "corte" if dif <= -0.2 else "alta" if dif >= 0.2 else "estavel"

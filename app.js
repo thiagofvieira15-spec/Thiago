@@ -121,7 +121,7 @@ const LIMITE_CONCENTRACAO = 15; // % máximo de um único ativo de renda variáv
 let estado = carregar();
 
 function estadoInicial() {
-  return { ativos: [], respostas: {}, perfil: null, alvo: null, cenario: null };
+  return { ativos: [], respostas: {}, perfil: null, alvo: null, cenario: null, historico: [], proventos: [] };
 }
 
 function carregar() {
@@ -319,6 +319,7 @@ function abrirAba(id) {
   if (id === 'diagnostico') renderDiagnostico();
   if (id === 'cenario') renderCenario();
   if (id === 'analise') renderAnalise();
+  if (id === 'evolucao' && typeof renderEvolucao === 'function') renderEvolucao();
   window.scrollTo(0, 0);
 }
 
@@ -429,6 +430,7 @@ function renderCarteira() {
   $('#vazio').hidden = ativos.length > 0;
   $('#tabela-ativos').hidden = ativos.length === 0;
   if (typeof renderStatusMercado === 'function') renderStatusMercado();
+  if (typeof registrarHistorico === 'function') registrarHistorico();
 }
 
 $('#exportar').addEventListener('click', () => {
@@ -686,7 +688,7 @@ function renderCenario() {
       <div class="resumo">
         ${kpis.map(([r, v, s]) => `<div class="kpi"><div class="rotulo">${r}</div><div class="valor">${v}</div><div class="rotulo">${esc(s)}</div></div>`).join('')}
       </div>
-      ${MERCADO?.macro ? `<p class="dica"><span class="ok">●</span> Selic, IPCA, dólar, expectativas do Boletim Focus e taxa do Tesouro IPCA+ atualizados automaticamente (Banco Central e Tesouro Direto). Juros dos EUA, tendências e riscos seguem o comentário de ${dataBR(CENARIO_PADRAO.dataReferencia)}.</p>` : ''}
+      ${MERCADO?.macro ? `<p class="dica"><span class="ok">●</span> Selic, IPCA, dólar, expectativas do Boletim Focus, taxa do Tesouro IPCA+, juros e inflação dos EUA atualizados automaticamente (Banco Central, Tesouro Direto e Federal Reserve). Riscos eleitoral e geopolítico seguem o comentário de ${dataBR(CENARIO_PADRAO.dataReferencia)}.</p>` : ''}
       ${!editado && cx.resumo ? `<p class="dica" style="margin-bottom:0">Comentário de ${dataBR(CENARIO_PADRAO.dataReferencia)}:</p><ul class="limpa">${cx.resumo.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>` : ''}
     </div>
     <div class="card">

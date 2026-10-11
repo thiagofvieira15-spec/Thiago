@@ -161,3 +161,22 @@ ul.pontos li span { color: var(--texto); }
 #analise .kpi { padding: 10px; }
 textarea { font: inherit; width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--borda); background: var(--bg); color: var(--texto); resize: vertical; }
 td input, td select { padding: 4px 6px; }
+
+/* Gráficos */
+:root { --serie-1: #2a78d6; --serie-2: #eb6834; }
+@media (prefers-color-scheme: dark) { :root { --serie-1: #3987e5; --serie-2: #d95926; } }
+.viz-caixa { position: relative; margin: 8px 0; }
+.viz-caixa svg { display: block; overflow: visible; }
+.viz-grade { stroke: var(--borda); stroke-width: 1; }
+.viz-eixo { fill: var(--suave); font-size: 11px; font-variant-numeric: tabular-nums; }
+.viz-linha { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.viz-ponto { stroke: var(--card); stroke-width: 2; }
+.viz-guia { stroke: var(--suave); stroke-width: 1; stroke-dasharray: 3 3; }
+.viz-barra { fill: var(--serie-1); }
+.viz-legenda { display: flex; gap: 16px; font-size: 0.85rem; color: var(--suave); flex-wrap: wrap; }
+.viz-amostra { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.viz-dica { position: absolute; pointer-events: none; background: var(--card); border: 1px solid var(--borda); border-radius: 8px;
+  padding: 6px 10px; font-size: 0.8rem; box-shadow: 0 2px 8px rgba(0,0,0,0.12); min-width: 150px; color: var(--texto); }
+code { background: var(--bg); padding: 1px 4px; border-radius: 4px; }
+.ia-texto h3 { margin: 16px 0 6px; }
+.ia-texto p { margin: 6px 0; }
