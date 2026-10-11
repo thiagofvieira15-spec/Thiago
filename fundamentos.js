@@ -40,13 +40,14 @@ const INDICADORES = {
     ['margem', 'Margem líquida', '%', (v) => v >= 10 ? [1, `Margem líquida de ${f1(v)}%: negócio eficiente.`]
       : v >= 0 ? [0, `Margem líquida de ${f1(v)}%: margens apertadas.`]
       : [-1, `Margem líquida negativa (${f1(v)}%): a empresa opera com prejuízo.`]],
-    ['divPl', 'Dívida / Patrimônio', 'x', (v, a) => a.fund?.banco ? [0, 'Banco: o endividamento faz parte do negócio e não é avaliado.']
-      : v <= 1 ? [1, `Dívida/patrimônio de ${f1(v)}: endividamento controlado.`]
-      : v <= 2 ? [0, `Dívida/patrimônio de ${f1(v)}: endividamento moderado.`]
-      : [-1, `Dívida/patrimônio de ${f1(v)}: endividamento alto. Com juros altos, a dívida pesa muito no resultado.`]],
-    ['cresc', 'Crescimento do lucro (12m)', '%', (v) => v >= 5 ? [1, `Lucro crescendo ${f1(v)}% em 12 meses.`]
-      : v >= -5 ? [0, `Lucro estável (${f1(v)}% em 12 meses).`]
-      : [-1, `Lucro caindo ${f1(-v)}% em 12 meses.`]],
+    ['divPl', 'Dívida líquida / Patrimônio', 'x', (v, a) => a.fund?.banco ? [0, 'Banco: o endividamento faz parte do negócio e não é avaliado.']
+      : v < 0 ? [1, 'Caixa líquido: a empresa tem mais dinheiro em caixa do que dívidas.']
+      : v <= 1 ? [1, `Dívida líquida/patrimônio de ${f1(v)}: endividamento controlado.`]
+      : v <= 2 ? [0, `Dívida líquida/patrimônio de ${f1(v)}: endividamento moderado.`]
+      : [-1, `Dívida líquida/patrimônio de ${f1(v)}: endividamento alto. Com juros altos, a dívida pesa muito no resultado.`]],
+    ['cresc', 'Crescimento da receita', '% a.a.', (v) => v >= 5 ? [1, `Receita crescendo ${f1(v)}% ao ano.`]
+      : v >= -5 ? [0, `Receita estável (${f1(v)}% ao ano).`]
+      : [-1, `Receita caindo ${f1(-v)}% ao ano.`]],
   ],
   fii: [
     ['pvp', 'P/VP', 'x', (v) => v < 0.85 ? [0, `P/VP de ${f2(v)}: bem abaixo do patrimônio. Pode ser oportunidade ou sinal de problema; investigue.`]
@@ -159,7 +160,7 @@ async function buscarFundamentos(a, token) {
     set('margem', fracaoParaPct(fd.profitMargins));
     // debtToEquity no padrão Yahoo vem em % (85 = 0,85x)
     if (numero(fd.debtToEquity) !== undefined) set('divPl', numero(fd.debtToEquity) / 100);
-    set('cresc', fracaoParaPct(fd.earningsGrowth));
+    set('cresc', fracaoParaPct(fd.revenueGrowth) ?? fracaoParaPct(fd.earningsGrowth));
     const setor = sp.sector || sp.sectorDisp;
     if (setor) novo.setor = setor;
     if (/financ|bank|banco/i.test(`${setor || ''} ${sp.industry || ''}`)) novo.banco = true;
@@ -199,10 +200,8 @@ function renderAnalise() {
   alvo.innerHTML = `
     <div class="card">
       <h2>Análise dos ativos</h2>
-      <div class="linha-botoes">
-        <button class="btn" id="buscar-fundamentos">Buscar fundamentos automaticamente</button>
-        <span class="dica" style="margin:0;align-self:center">Usa o token da brapi informado na aba Carteira. Ações têm busca completa; para FIIs só o dividend yield vem automático.</span>
-      </div>
+      <p class="dica" style="margin-top:0">Os indicadores são preenchidos automaticamente (Fundamentus), sem cadastro. Você pode corrigir ou completar qualquer valor; o que você digitar fica marcado com ✎ e não é sobrescrito.</p>
+      ${estado.tokenBrapi ? '<button class="btn sec" id="buscar-fundamentos">Atualizar também pela brapi</button>' : ''}
       <p id="status-fundamentos" class="dica"></p>
       <div class="resumo" style="margin:12px 0 0">
         <div class="kpi"><div class="rotulo">Fundamentos sólidos</div><div class="valor pos">${contagem.bom}</div></div>

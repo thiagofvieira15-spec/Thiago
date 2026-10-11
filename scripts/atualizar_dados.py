@@ -102,7 +102,7 @@ def acoes():
         "dy": coluna(cab, "divyield", "dividendyield"),
         "roe": coluna(cab, "roe"),
         "margem": coluna(cab, "mrgliq", "margemliquida"),
-        "divPl": coluna(cab, "divbrut/patrim", "divbrut/patrimonio"),
+        "divPl": coluna(cab, "divliq/patrim", "divbrut/patrim", "divbrut/patrimonio"),
         "cresc": coluna(cab, "crescrec5a"),
         "liq": coluna(cab, "liq2meses"),
     }
@@ -149,26 +149,74 @@ def fiis():
     return out
 
 
-def etfs():
-    # Usa a mesma lista de ETFs do site
-    js = (RAIZ / "fundamentos.js").read_text(encoding="utf-8")
-    bloco = re.search(r"const ETFS = new Set\(\[(.*?)\]\)", js, re.S).group(1)
-    tickers = re.findall(r"'([A-Z0-9]+)'", bloco)
+def etf_yahoo_lote(tickers):
+    """Uma única requisição para todos os ETFs (endpoint spark)."""
     out = {}
-    for t in tickers:
-        try:
-            d = json.loads(baixar(f"https://query1.finance.yahoo.com/v8/finance/chart/{t}.SA?range=5d&interval=1d"))
-            meta = d["chart"]["result"][0]["meta"]
+    for i in range(0, len(tickers), 20):
+        lote = ",".join(f"{t}.SA" for t in tickers[i:i + 20])
+        d = json.loads(baixar(f"https://query2.finance.yahoo.com/v7/finance/spark?symbols={lote}&range=5d&interval=1d"))
+        for r in d.get("spark", {}).get("result", []) or []:
+            resp = (r.get("response") or [{}])[0]
+            meta = resp.get("meta", {})
             preco = meta.get("regularMarketPrice")
             ant = meta.get("chartPreviousClose") or meta.get("previousClose")
             if preco:
                 item = {"preco": round(preco, 4)}
                 if ant:
                     item["varDia"] = round((preco / ant - 1) * 100, 2)
-                out[t] = item
-        except Exception as e:  # um ETF com problema não deve derrubar o resto
-            print(f"aviso: {t}: {e}", file=sys.stderr)
-        time.sleep(0.3)
+                out[r["symbol"].replace(".SA", "")] = item
+    return out
+
+
+def etf_google(t):
+    html = baixar(f"https://www.google.com/finance/quote/{t}:BVMF?hl=en")
+    m = re.search(r'data-last-price="([\d.]+)"', html)
+    if not m:
+        raise RuntimeError("preço não encontrado")
+    item = {"preco": round(float(m.group(1)), 4)}
+    ant = re.search(r"Previous close.*?R\$\s?([\d,]+\.\d+)", html, re.S)
+    if ant:
+        a = float(ant.group(1).replace(",", ""))
+        if a:
+            item["varDia"] = round((item["preco"] / a - 1) * 100, 2)
+    return item
+
+
+def etf_statusinvest(t):
+    html = baixar(f"https://statusinvest.com.br/etfs/{t.lower()}")
+    m = re.search(r'title="Valor atual do ativo".*?<strong class="value">\s*([\d.,]+)\s*<', html, re.S)
+    if not m:
+        raise RuntimeError("preço não encontrado")
+    return {"preco": num(m.group(1))}
+
+
+def etfs():
+    # Usa a mesma lista de ETFs do site
+    js = (RAIZ / "fundamentos.js").read_text(encoding="utf-8")
+    bloco = re.search(r"const ETFS = new Set\(\[(.*?)\]\)", js, re.S).group(1)
+    tickers = re.findall(r"'([A-Z0-9]+)'", bloco)
+    out = {}
+    try:
+        out.update(etf_yahoo_lote(tickers))
+        print(f"etfs via Yahoo: {len(out)}")
+    except Exception as e:
+        print(f"aviso: Yahoo indisponível: {e}", file=sys.stderr)
+    for fonte in (etf_google, etf_statusinvest):
+        faltando = [t for t in tickers if t not in out]
+        if not faltando:
+            break
+        erros = 0
+        for t in faltando:
+            try:
+                out[t] = fonte(t)
+            except Exception as e:
+                erros += 1
+                print(f"aviso: {fonte.__name__} {t}: {e}", file=sys.stderr)
+                if erros >= 5 and erros == len(faltando[: faltando.index(t) + 1]):
+                    print(f"aviso: {fonte.__name__} parece bloqueado, pulando", file=sys.stderr)
+                    break
+            time.sleep(0.5)
+        print(f"etfs após {fonte.__name__}: {len(out)}")
     return out
 
 
