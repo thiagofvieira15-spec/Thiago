@@ -276,41 +276,40 @@ def mediana(vals):
     return round(v[m] if len(v) % 2 else (v[m - 1] + v[m]) / 2, 2)
 
 
-def setores(acoes_dados):
-    """Associa cada ação ao seu setor (Fundamentus) e calcula as medianas de cada setor."""
-    nomes, membros = {}, {}
-    vazios = 0
-    # A numeração de setores do Fundamentus tem lacunas: percorre tudo e só para após muitas vazias seguidas
-    for n in range(1, 101):
-        try:
-            cab, linhas = tabela(f"https://www.fundamentus.com.br/resultado.php?setor={n}")
-        except Exception:
-            vazios += 1
-            if vazios >= 25:
-                break
+def setor_da_acao(t):
+    html = baixar(f"https://www.fundamentus.com.br/detalhes.php?papel={t}")
+    m = re.search(r">Setor<.*?<a[^>]*>([^<]+)</a>", html, re.S)
+    if not m:
+        raise RuntimeError("setor não encontrado")
+    return " ".join(m.group(1).split())
+
+
+def setores(acoes_dados, anterior_acoes):
+    """Associa cada ação ao seu setor (página de detalhes do Fundamentus) e calcula as medianas por setor.
+    O setor raramente muda, então reaproveita o da execução anterior e só consulta ações novas."""
+    novos = erros = 0
+    for t, d in acoes_dados.items():
+        antigo = (anterior_acoes.get(t) or {}).get("setor")
+        if antigo:
+            d["setor"] = antigo
             continue
-        tickers = [l[0].upper() for l in linhas if l and l[0].upper() in acoes_dados]
-        if not tickers:
-            continue
-        vazios = 0
-        membros[n] = tickers
-        # Nome do setor: página de detalhes de uma ação do setor
         try:
-            html = baixar(f"https://www.fundamentus.com.br/detalhes.php?papel={tickers[0]}")
-            m = re.search(r">Setor<.*?<a[^>]*>([^<]+)</a>", html, re.S)
-            nomes[n] = " ".join(m.group(1).split()) if m else f"Setor {n}"
-        except Exception:
-            nomes[n] = f"Setor {n}"
-        time.sleep(0.2)
+            d["setor"] = setor_da_acao(t)
+            novos += 1
+        except Exception as e:
+            erros += 1
+            if erros <= 5:
+                print(f"aviso: setor {t}: {e}", file=sys.stderr)
+        time.sleep(0.25)
+    grupos = {}
+    for t, d in acoes_dados.items():
+        if d.get("setor"):
+            grupos.setdefault(d["setor"], []).append(d)
     out = {}
-    for n, tickers in membros.items():
-        nome = nomes[n]
-        for t in tickers:
-            acoes_dados[t]["setor"] = nome
-        if len(tickers) < 3:
+    for nome, dados in grupos.items():
+        if len(dados) < 3:
             continue
-        dados = [acoes_dados[t] for t in tickers]
-        med = {"n": len(tickers)}
+        med = {"n": len(dados)}
         for k in ("pl", "pvp", "roe", "margem", "dy", "divPl"):
             # P/L negativo (prejuízo) não entra na mediana
             vals = [d.get(k) for d in dados if not (k == "pl" and (d.get(k) or 0) <= 0)]
@@ -318,7 +317,8 @@ def setores(acoes_dados):
             if mv is not None:
                 med[k] = mv
         out[nome] = med
-    print(f"setores: {len(out)} com mediana, {sum(len(t) for t in membros.values())} ações classificadas")
+    classificadas = sum(1 for d in acoes_dados.values() if d.get("setor"))
+    print(f"setores: {len(out)} com mediana, {classificadas} ações classificadas ({novos} consultadas agora, {erros} erros)")
     return out
 
 
@@ -451,7 +451,7 @@ def main():
             resultado["fontes"][nome] = anterior.get("fontes", {}).get(nome, fonte) + " (dados anteriores)"
     try:
         if resultado.get("acoes"):
-            resultado["setores"] = setores(resultado["acoes"]) or anterior.get("setores", {})
+            resultado["setores"] = setores(resultado["acoes"], anterior.get("acoes", {})) or anterior.get("setores", {})
     except Exception as e:
         print(f"ERRO em setores: {e}", file=sys.stderr)
         resultado["setores"] = anterior.get("setores", {})
