@@ -11,10 +11,22 @@ const ETFS = new Set([
   'LFTS11', 'DEBB11', 'PIBB11', 'BRAX11', 'ISUS11', 'UTEC11', 'TECK11', 'USAL11', 'SPXB11', 'BIVB11', 'DNAI11',
 ]);
 
+// ETFs negociados nos EUA (conta no exterior)
+const ETFS_EUA = new Set([
+  'VT', 'VTI', 'VOO', 'IVV', 'SPY', 'VXUS', 'VEA', 'VWO', 'QQQ', 'QQQM', 'SCHD', 'VIG', 'VYM', 'ACWI', 'IEFA', 'IEMG',
+  'AVUV', 'AVDV', 'DGRO', 'BND', 'BNDX', 'AGG', 'TLT', 'IEF', 'SHY', 'TIP', 'VNQ', 'GLD', 'IAU', 'SGOV', 'BIL', 'IBIT',
+]);
+
+// ETFs e fundos de índice já são diversificados: não entram no limite de concentração
+function ehFundoDiversificado(a) {
+  const t = a.nome.replace(/F$/, '');
+  return ETFS.has(t) || ETFS_EUA.has(a.nome);
+}
+
 function tipoAtivo(a) {
   const ticker = a.nome.replace(/F$/, '');
   if (classe(a.classe).rendaFixa) return 'rf';
-  if (ETFS.has(ticker)) return 'etf';
+  if (ETFS.has(ticker) || ETFS_EUA.has(a.nome)) return 'etf';
   if (a.classe === 'fiis') return 'fii';
   if (a.classe === 'acoes' && /^[A-Z]{4}\d{1,2}$/.test(ticker)) return 'acao';
   return 'outro';

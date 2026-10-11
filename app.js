@@ -735,7 +735,7 @@ function diagnosticar(tol = 5) {
 
     if (a.classe === 'cripto' && estado.perfil === 'conservador') {
       acao = 'vender'; motivo = 'Cripto é muito volátil e incompatível com o perfil conservador.';
-    } else if (!c.rendaFixa && peso > LIMITE_CONCENTRACAO) {
+    } else if (!c.rendaFixa && !ehFundoDiversificado(a) && peso > LIMITE_CONCENTRACAO) {
       acao = 'reduzir'; motivo = `Representa ${pct(peso)} da carteira, acima do limite de ${LIMITE_CONCENTRACAO}% para um único ativo de renda variável.`;
     } else if (l.meta === 0 && l.atual > 0) {
       acao = 'vender'; motivo = 'Sua alocação-base não prevê esta classe (meta zero).';
@@ -905,7 +905,7 @@ function gerarPlano(aporte, permitirVendas, tol, reserva = 0) {
         continue;
       }
       const limite = (LIMITE_CONCENTRACAO / 100) * novoTotal;
-      if (!c.rendaFixa && valorAtivo(a) > limite) {
+      if (!c.rendaFixa && !ehFundoDiversificado(a) && valorAtivo(a) > limite) {
         addVenda(a, valorAtivo(a) - limite, `Reduz concentração para ${LIMITE_CONCENTRACAO}% da carteira.`);
       }
     }
@@ -958,6 +958,8 @@ function gerarPlano(aporte, permitirVendas, tol, reserva = 0) {
 // Dentro da classe, direciona o dinheiro para os ativos menores, buscando pesos iguais.
 // Ativos que estão sendo vendidos não recebem compras.
 function distribuirNaClasse(classeId, valor, vendas) {
+  // Em renda fixa o que importa é o tipo de título, não igualar posições: sugere opções da classe
+  if (classe(classeId).rendaFixa) return [];
   let ativos = estado.ativos.filter((a) => a.classe === classeId && !vendas.has(a.id));
   // Ativos com fundamentos fracos não recebem aportes quando há alternativas na classe
   const saudaveis = ativos.filter((a) => avaliarFundamentos(a).nivel !== 'fraco');
@@ -1050,7 +1052,7 @@ $('#form-plano').addEventListener('submit', (e) => {
           </tr>`).join('')}</tbody>
         </table></div>
         <p class="dica">Ou diversifique com: ${CATALOGO[cp.c.id].map((i) => esc(i[0])).join(' · ')}</p>`
-        : `<p class="dica">Você não tem ativos nesta classe. Opções:</p>
+        : `<p class="dica">${cp.c.rendaFixa ? 'Escolha o título com a melhor taxa disponível na sua corretora. Opções:' : 'Você não tem ativos nesta classe. Opções:'}</p>
           ${CATALOGO[cp.c.id].map(([n, d]) => `<div class="sugestao"><strong>${esc(n)}</strong><span class="motivo">${esc(d)}</span></div>`).join('')}`}
       `).join('') : '<p>Nada a comprar.</p>'}
     </div>
