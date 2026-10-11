@@ -1,0 +1,37 @@
+name: Atualizar cotações e indicadores
+
+on:
+  schedule:
+    # Dias úteis às 10h05, 13h05 e 18h35 (horário de Brasília)
+    - cron: '5 13 * * 1-5'
+    - cron: '5 16 * * 1-5'
+    - cron: '35 21 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dados
+  cancel-in-progress: false
+
+jobs:
+  atualizar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python scripts/atualizar_dados.py
+      - name: Salvar dados no repositório
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dados/mercado.json
+          if git diff --cached --quiet; then
+            echo "Sem mudanças"
+          else
+            git commit -m "Atualiza cotações e indicadores"
+            git push
+          fi
