@@ -406,9 +406,16 @@ def taxa_ipca_longo():
     return melhor[1]
 
 
+def baixar_rapido(url, timeout=20, cabecalhos=None):
+    req = urllib.request.Request(url, headers={"User-Agent": UA, **(cabecalhos or {})})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return r.read().decode("utf-8", errors="replace")
+
+
 def fred(serie):
     """Série do FRED (Federal Reserve de St. Louis) em CSV público, sem chave. Retorna [(data, valor)]."""
-    linhas = baixar(f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={serie}").strip().splitlines()[1:]
+    inicio = (datetime.now().replace(year=datetime.now().year - 2)).strftime("%Y-%m-%d")
+    linhas = baixar_rapido(f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={serie}&cosd={inicio}").strip().splitlines()[1:]
     out = []
     for l in linhas:
         d, _, v = l.partition(",")
@@ -421,24 +428,58 @@ def fred(serie):
     return out
 
 
+def fed_funds_nyfed():
+    """Banda da meta de juros dos EUA pela API pública do Fed de Nova York: [(data, teto)]."""
+    d = json.loads(baixar_rapido("https://markets.newyorkfed.org/api/rates/unsecured/effr/last/200.json",
+                                 cabecalhos={"Accept": "application/json"}))
+    out = []
+    for r in d.get("refRates", []):
+        teto = r.get("targetRateTo")
+        if teto is not None:
+            out.append((datetime.strptime(r["effectiveDate"], "%Y-%m-%d"), float(teto)))
+    if not out:
+        raise RuntimeError("NY Fed sem dados")
+    return sorted(out)
+
+
+def inflacao_bls():
+    """Núcleo do CPI dos EUA em 12 meses (API pública v1 do BLS, sem chave)."""
+    d = json.loads(baixar_rapido("https://api.bls.gov/publicAPI/v1/timeseries/data/CUUR0000SA0L1E"))
+    dados = d["Results"]["series"][0]["data"]  # mais recente primeiro
+    serie = {(int(x["year"]), x["period"]): float(x["value"]) for x in dados if x["period"].startswith("M") and x["period"] != "M13"}
+    ano, per = max(serie)
+    anterior = serie.get((ano - 1, per))
+    if not anterior:
+        raise RuntimeError("BLS sem mês comparável")
+    return (serie[(ano, per)] / anterior - 1) * 100
+
+
 def macro_eua(out):
-    """Juros (teto da meta dos Fed Funds), tendência e núcleo do PCE em 12 meses."""
-    try:
-        fed = fred("DFEDTARU")
+    """Juros (teto da meta dos Fed Funds), tendência e inflação dos EUA, com fontes alternativas."""
+    fed = None
+    for fonte in (lambda: fred("DFEDTARU"), fed_funds_nyfed):
+        try:
+            fed = fonte()
+            break
+        except Exception as e:
+            print(f"aviso: juros EUA: {e}", file=sys.stderr)
+    if fed:
         atual_d, atual = fed[-1]
         antes = [v for d, v in fed if (atual_d - d).days >= 120]
         out["fedFunds"] = round(atual, 2)
         if antes:
             dif = atual - antes[-1]
             out["tendenciaFed"] = "alta" if dif > 0.1 else "corte" if dif < -0.1 else "estavel"
-    except Exception as e:
-        print(f"aviso: macro fedFunds: {e}", file=sys.stderr)
     try:
         pce = fred("PCEPILFE")
         if len(pce) >= 13:
             out["inflacaoEUA"] = round((pce[-1][1] / pce[-13][1] - 1) * 100, 2)
     except Exception as e:
-        print(f"aviso: macro inflacaoEUA: {e}", file=sys.stderr)
+        print(f"aviso: inflação EUA (PCE/FRED): {e}", file=sys.stderr)
+        try:
+            out["inflacaoEUA"] = round(inflacao_bls(), 2)
+        except Exception as e2:
+            print(f"aviso: inflação EUA (CPI/BLS): {e2}", file=sys.stderr)
 
 
 def macro():
