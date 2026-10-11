@@ -120,3 +120,33 @@ th { color: var(--suave); font-weight: 500; font-size: 0.8rem; }
 .ok { color: var(--positivo); }
 
 .rodape { text-align: center; color: var(--suave); font-size: 0.8rem; padding: 24px 16px 40px; }
+
+label.check { flex-direction: row; align-items: center; gap: 8px; color: var(--texto); font-size: 0.9rem; }
+details summary { cursor: pointer; }
+.cols { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.cols > .card { margin-bottom: 0; }
+.bloco { margin-bottom: 16px; }
+
+.tag {
+  display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.78rem; font-weight: 600;
+  border: 1px solid currentColor; white-space: nowrap;
+}
+.tag.comprar { color: var(--positivo); }
+.tag.vender, .tag.reduzir { color: var(--negativo); }
+.tag.manter { color: var(--suave); }
+.tag.avaliar { color: var(--alerta); }
+
+.sinal { border-left: 3px solid var(--primaria); padding: 8px 12px; margin: 10px 0; background: var(--bg); border-radius: 0 8px 8px 0; }
+.sinal .titulo { font-weight: 600; }
+.sinal .efeitos { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-size: 0.75rem; padding: 2px 8px; border-radius: 999px; background: var(--card); border: 1px solid var(--borda); }
+.chip.mais { color: var(--positivo); }
+.chip.menos { color: var(--negativo); }
+
+.sugestao { padding: 10px 0; border-bottom: 1px solid var(--borda); }
+.sugestao:last-child { border-bottom: none; }
+.sugestao strong { display: block; }
+.motivo { color: var(--suave); font-size: 0.85rem; white-space: normal; }
+td.motivo { min-width: 220px; }
+ul.limpa { padding-left: 18px; margin: 6px 0; }
+ul.limpa li { margin: 4px 0; }

@@ -9,18 +9,65 @@
 <body>
   <header class="topo">
     <h1>Minha Carteira</h1>
-    <p class="sub">Controle, avaliação por perfil e sugestão de aportes</p>
+    <p class="sub">Avaliação da carteira no cenário atual, com sugestões de compra, venda e aportes</p>
     <nav class="abas" role="tablist">
-      <button class="aba ativa" data-aba="carteira">Carteira</button>
+      <button class="aba ativa" data-aba="diagnostico">Diagnóstico</button>
+      <button class="aba" data-aba="plano">Plano de ação</button>
+      <button class="aba" data-aba="cenario">Cenário</button>
+      <button class="aba" data-aba="carteira">Carteira</button>
       <button class="aba" data-aba="perfil">Perfil</button>
-      <button class="aba" data-aba="avaliacao">Avaliação</button>
-      <button class="aba" data-aba="aporte">Aporte mensal</button>
     </nav>
   </header>
 
   <main>
+    <!-- DIAGNOSTICO -->
+    <section id="diagnostico" class="painel ativo">
+      <div id="diagnostico-conteudo"></div>
+    </section>
+
+    <!-- PLANO DE ACAO -->
+    <section id="plano" class="painel">
+      <div class="card">
+        <h2>Plano de ação</h2>
+        <form id="form-plano" class="grade-form">
+          <label>Aporte deste mês (R$)
+            <input id="valor-aporte" type="number" step="any" min="0" placeholder="0">
+          </label>
+          <label>Tolerância de desvio (pontos %)
+            <input id="tolerancia" type="number" step="0.5" min="0" value="5">
+          </label>
+          <label>Reserva de emergência a preservar (R$)
+            <input id="reserva-valor" type="number" step="any" min="0" placeholder="Ex.: 15000">
+          </label>
+          <label class="check">
+            <input type="checkbox" id="permitir-vendas"> Permitir vendas para rebalancear
+          </label>
+          <div class="acoes-form"><button class="btn" type="submit">Gerar plano</button></div>
+        </form>
+        <p class="dica">Sem vendas, o aporte vai para as classes mais abaixo da meta ajustada ao cenário. Com vendas, também são indicados ativos para reduzir ou vender: concentrações excessivas e classes muito acima da meta.</p>
+      </div>
+      <div id="resultado-plano"></div>
+    </section>
+
+    <!-- CENARIO -->
+    <section id="cenario" class="painel">
+      <div id="cenario-conteudo"></div>
+      <div class="card">
+        <details>
+          <summary><strong>Atualizar dados do cenário</strong></summary>
+          <p class="dica">Os valores abaixo alimentam as regras de recomendação. Ajuste-os quando o cenário mudar: depois de uma reunião do Copom, um novo Boletim Focus etc.</p>
+          <form id="form-cenario" class="grade-form"></form>
+          <div class="linha-botoes" style="margin-top:12px">
+            <button class="btn sec" id="buscar-bcb" type="button">Buscar Selic, IPCA e dólar no Banco Central</button>
+            <button class="btn perigo" id="restaurar-cenario" type="button">Restaurar dados padrão</button>
+          </div>
+          <p id="status-bcb" class="dica"></p>
+        </details>
+      </div>
+    </section>
+
     <!-- CARTEIRA -->
-    <section id="carteira" class="painel ativo">
+    <section id="carteira" class="painel">
       <div class="resumo" id="resumo"></div>
 
       <div class="card">
@@ -28,7 +75,7 @@
         <form id="form-ativo" class="grade-form">
           <input type="hidden" id="ativo-id">
           <label>Ativo / ticker
-            <input id="ativo-nome" required placeholder="Ex.: ITSA4, Tesouro Selic 2029">
+            <input id="ativo-nome" required placeholder="Ex.: ITSA4, Tesouro IPCA+ 2035">
           </label>
           <label>Classe
             <select id="ativo-classe" required></select>
@@ -47,7 +94,7 @@
             <button type="button" class="btn sec" id="cancelar-edicao" hidden>Cancelar</button>
           </div>
         </form>
-        <p class="dica">Para renda fixa, use quantidade 1 e informe o valor aplicado como preço médio e o valor atual como preço atual.</p>
+        <p class="dica">Para renda fixa, use quantidade 1: o preço médio é o valor aplicado e o preço atual é o saldo de hoje.</p>
       </div>
 
       <div class="card">
@@ -81,38 +128,20 @@
         <div id="resultado-perfil"></div>
       </div>
       <div class="card">
-        <h2>Alocação-alvo</h2>
-        <p class="dica">Preenchida a partir do seu perfil. Você pode ajustar os percentuais. A soma precisa dar 100%.</p>
+        <h2>Alocação-base do perfil</h2>
+        <p class="dica">Ponto de partida antes do ajuste ao cenário. Você pode alterar os percentuais; a soma precisa dar 100%.</p>
         <form id="form-alvo" class="grade-form"></form>
         <p id="soma-alvo" class="soma"></p>
       </div>
     </section>
-
-    <!-- AVALIACAO -->
-    <section id="avaliacao" class="painel">
-      <div id="avaliacao-conteudo"></div>
-    </section>
-
-    <!-- APORTE -->
-    <section id="aporte" class="painel">
-      <div class="card">
-        <h2>Sugestão de aporte</h2>
-        <form id="form-aporte" class="grade-form">
-          <label>Valor do aporte mensal (R$)
-            <input id="valor-aporte" type="number" step="any" min="0" required placeholder="1000">
-          </label>
-          <div class="acoes-form"><button class="btn" type="submit">Calcular</button></div>
-        </form>
-        <p class="dica">O aporte vai primeiro para as classes que estão abaixo da meta. Assim você rebalanceia a carteira sem precisar vender nada.</p>
-      </div>
-      <div id="resultado-aporte"></div>
-    </section>
   </main>
 
   <footer class="rodape">
-    Ferramenta educacional. Não é recomendação de investimento. Os dados ficam salvos apenas neste navegador.
+    Ferramenta educacional baseada em regras gerais de alocação. Não é recomendação individual de investimento.
+    Consulte um profissional certificado antes de decisões relevantes. Os dados ficam salvos apenas neste navegador.
   </footer>
 
+  <script src="cenario.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

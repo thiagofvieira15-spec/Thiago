@@ -3,35 +3,67 @@
 // ---------- Configuração ----------
 
 const CLASSES = [
-  { id: 'rf_pos', nome: 'Renda Fixa – Pós (Selic/CDI)', cor: '#2f7ed8', rendaFixa: true,
-    exemplos: 'Tesouro Selic, CDB com liquidez diária, LCI/LCA pós-fixadas' },
-  { id: 'rf_ipca', nome: 'Renda Fixa – Inflação/Pré', cor: '#7cb5ec', rendaFixa: true,
-    exemplos: 'Tesouro IPCA+, Tesouro Prefixado, CDB/LCI de prazo maior' },
-  { id: 'acoes', nome: 'Ações Brasil', cor: '#e8743b', rendaFixa: false,
-    exemplos: 'ETF BOVA11 ou ações de empresas sólidas e pagadoras de dividendos' },
-  { id: 'fiis', nome: 'Fundos Imobiliários', cor: '#19a979', rendaFixa: false,
-    exemplos: 'ETF de FIIs (ex.: XFIX11) ou FIIs de tijolo e papel diversificados' },
-  { id: 'inter', nome: 'Internacional', cor: '#945ecf', rendaFixa: false,
-    exemplos: 'ETFs como IVVB11, WRLD11 ou BDRs de ETFs globais' },
-  { id: 'cripto', nome: 'Cripto', cor: '#f4b400', rendaFixa: false,
-    exemplos: 'ETFs de cripto como HASH11 ou BITH11' },
+  { id: 'rf_pos', nome: 'Renda Fixa – Pós (Selic/CDI)', curto: 'RF Pós', cor: '#2f7ed8', rendaFixa: true },
+  { id: 'rf_ipca', nome: 'Renda Fixa – Inflação (IPCA+)', curto: 'RF IPCA+', cor: '#7cb5ec', rendaFixa: true },
+  { id: 'rf_pre', nome: 'Renda Fixa – Prefixada', curto: 'RF Pré', cor: '#5b6fbf', rendaFixa: true },
+  { id: 'acoes', nome: 'Ações Brasil', curto: 'Ações', cor: '#e8743b', rendaFixa: false },
+  { id: 'fiis', nome: 'Fundos Imobiliários', curto: 'FIIs', cor: '#19a979', rendaFixa: false },
+  { id: 'inter', nome: 'Internacional', curto: 'Internacional', cor: '#945ecf', rendaFixa: false },
+  { id: 'cripto', nome: 'Cripto', curto: 'Cripto', cor: '#f4b400', rendaFixa: false },
 ];
+
+// Ideias genéricas por classe (produtos amplos e diversificados, não indicação de empresas)
+const CATALOGO = {
+  rf_pos: [
+    ['Tesouro Selic', 'Base da reserva de emergência: liquidez diária e quase nenhuma oscilação. Com a Selic alta, rende bem.'],
+    ['CDB de liquidez diária (≥ 100% do CDI)', 'Alternativa ao Tesouro Selic, coberta pelo FGC até R$ 250 mil por instituição.'],
+    ['LCI/LCA pós-fixada', 'Isenta de IR para pessoa física. Compare com o CDB descontando o imposto.'],
+  ],
+  rf_ipca: [
+    ['Tesouro IPCA+ (vencimento 2029–2035)', 'Protege da inflação e permite travar juro real alto. Leve até o vencimento para evitar marcação a mercado.'],
+    ['Tesouro IPCA+ com Juros Semestrais', 'Mesma proteção, pagando cupons semestrais. Bom para quem busca renda.'],
+    ['Debêntures incentivadas atreladas ao IPCA', 'Isentas de IR, mas com risco de crédito da empresa. Prefira emissores sólidos e diversifique.'],
+  ],
+  rf_pre: [
+    ['Tesouro Prefixado (2029–2031)', 'Ganha valor se a Selic cair mais que o esperado. Perde se a inflação surpreender para cima.'],
+    ['CDB prefixado de prazo médio', 'Taxa fixa conhecida. Respeite o limite do FGC.'],
+  ],
+  acoes: [
+    ['ETF do Ibovespa (BOVA11)', 'Diversificação imediata nas maiores empresas brasileiras, com baixo custo.'],
+    ['ETF de dividendos (DIVO11)', 'Empresas maduras, pagadoras de dividendos. Costuma oscilar menos que o índice.'],
+    ['ETF de small caps (SMAL11)', 'Empresas menores, mais sensíveis à queda de juros. Mais volátil.'],
+  ],
+  fiis: [
+    ['ETF de FIIs (XFIX11)', 'Exposição a vários fundos de uma vez, com renda mensal.'],
+    ['FIIs de papel (CRI) diversificados', 'Rendem com CDI/IPCA altos. Atenção ao risco de crédito dos CRIs.'],
+    ['FIIs de tijolo (logística/lajes)', 'Tendem a se valorizar com cortes de juros. Prefira imóveis de qualidade e boa vacância.'],
+  ],
+  inter: [
+    ['ETF do S&P 500 (IVVB11)', 'Exposição às maiores empresas dos EUA, em dólar, negociada na B3.'],
+    ['ETF global (WRLD11 / ACWI11)', 'Diversificação mundial em um único ativo.'],
+    ['BDRs de ETFs globais', 'Alternativa para montar a exposição internacional sem abrir conta no exterior.'],
+  ],
+  cripto: [
+    ['ETF de cripto (HASH11)', 'Cesta de criptoativos via B3. Mantenha uma fatia pequena.'],
+    ['ETF de bitcoin (BITH11 / QBTC11)', 'Exposição só ao bitcoin. Volatilidade muito alta.'],
+  ],
+};
 
 const PERFIS = {
   conservador: {
     nome: 'Conservador',
     desc: 'Prioriza segurança e liquidez. Aceita retornos menores para evitar oscilações.',
-    alvo: { rf_pos: 50, rf_ipca: 30, acoes: 8, fiis: 7, inter: 5, cripto: 0 },
+    alvo: { rf_pos: 45, rf_ipca: 25, rf_pre: 10, acoes: 8, fiis: 7, inter: 5, cripto: 0 },
   },
   moderado: {
     nome: 'Moderado',
     desc: 'Busca equilíbrio entre segurança e crescimento. Tolera oscilações moderadas.',
-    alvo: { rf_pos: 25, rf_ipca: 25, acoes: 20, fiis: 12, inter: 15, cripto: 3 },
+    alvo: { rf_pos: 22, rf_ipca: 20, rf_pre: 8, acoes: 20, fiis: 12, inter: 15, cripto: 3 },
   },
   arrojado: {
     nome: 'Arrojado',
     desc: 'Foco em crescimento de longo prazo. Aceita quedas fortes no curto prazo.',
-    alvo: { rf_pos: 10, rf_ipca: 15, acoes: 35, fiis: 12, inter: 23, cripto: 5 },
+    alvo: { rf_pos: 10, rf_ipca: 12, rf_pre: 5, acoes: 33, fiis: 12, inter: 23, cripto: 5 },
   },
 };
 
@@ -50,26 +82,53 @@ const PERGUNTAS = [
     ['Não tenho', 0], ['Tenho parte dela', 1], ['Sim, completa', 3]] },
 ];
 
+const CAMPOS_CENARIO = [
+  ['dataReferencia', 'Data de referência', 'date'],
+  ['selic', 'Selic atual (% a.a.)', 'number'],
+  ['tendenciaSelic', 'Tendência da Selic', ['corte', 'estavel', 'alta']],
+  ['selicFocusFimAno', 'Selic esperada fim do ano (%)', 'number'],
+  ['ipca12m', 'IPCA 12 meses (%)', 'number'],
+  ['ipcaFocusAno', 'IPCA esperado no ano (%)', 'number'],
+  ['tetoMetaIpca', 'Teto da meta de inflação (%)', 'number'],
+  ['taxaIpcaLongo', 'Juro real do Tesouro IPCA+ (%)', 'number'],
+  ['pibFocusAno', 'PIB esperado no ano (%)', 'number'],
+  ['dolar', 'Dólar atual (R$)', 'number'],
+  ['dolarFocusFimAno', 'Dólar esperado fim do ano (R$)', 'number'],
+  ['riscoEleitoral', 'Período eleitoral / risco político', 'bool'],
+  ['fedFunds', 'Juros nos EUA – Fed Funds (%)', 'number'],
+  ['tendenciaFed', 'Tendência do Fed', ['corte', 'estavel', 'alta']],
+  ['inflacaoEUA', 'Inflação nos EUA (%)', 'number'],
+  ['riscoGeopolitico', 'Tensão geopolítica relevante', 'bool'],
+];
+
+const ROTULO_TENDENCIA = { corte: 'em queda', estavel: 'estável', alta: 'em alta' };
 const CHAVE = 'minha-carteira-v1';
+const LIMITE_CONCENTRACAO = 15; // % máximo de um único ativo de renda variável
 
 // ---------- Estado ----------
 
 let estado = carregar();
 
 function estadoInicial() {
-  return { ativos: [], respostas: {}, perfil: null, alvo: null };
+  return { ativos: [], respostas: {}, perfil: null, alvo: null, cenario: null };
 }
 
 function carregar() {
+  let e = estadoInicial();
   try {
     const bruto = localStorage.getItem(CHAVE);
-    if (bruto) return Object.assign(estadoInicial(), JSON.parse(bruto));
-  } catch (e) { /* armazenamento indisponível */ }
-  return estadoInicial();
+    if (bruto) e = Object.assign(e, JSON.parse(bruto));
+  } catch (err) { /* armazenamento indisponível */ }
+  if (e.alvo) for (const c of CLASSES) if (e.alvo[c.id] === undefined) e.alvo[c.id] = 0;
+  return e;
 }
 
 function salvar() {
-  try { localStorage.setItem(CHAVE, JSON.stringify(estado)); } catch (e) { /* ignora */ }
+  try { localStorage.setItem(CHAVE, JSON.stringify(estado)); } catch (err) { /* ignora */ }
+}
+
+function cenario() {
+  return Object.assign({}, CENARIO_PADRAO, estado.cenario || {});
 }
 
 // ---------- Utilidades ----------
@@ -80,18 +139,20 @@ const pct = (v, casas = 1) => `${(v || 0).toLocaleString('pt-BR', { minimumFract
 const num = (v) => (v || 0).toLocaleString('pt-BR', { maximumFractionDigits: 8 });
 const $ = (s) => document.querySelector(s);
 const classe = (id) => CLASSES.find((c) => c.id === id);
+const dataBR = (iso) => (iso ? iso.split('-').reverse().join('/') : '—');
 
 function esc(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-function valorAtivo(a) { return a.qtd * (a.pa || a.pm); }
-function custoAtivo(a) { return a.qtd * a.pm; }
+const preco = (a) => a.pa || a.pm;
+const valorAtivo = (a) => a.qtd * preco(a);
+const custoAtivo = (a) => a.qtd * a.pm;
 
-function totais() {
+function totais(ativos = estado.ativos) {
   const porClasse = Object.fromEntries(CLASSES.map((c) => [c.id, 0]));
   let total = 0, custo = 0;
-  for (const a of estado.ativos) {
+  for (const a of ativos) {
     const v = valorAtivo(a);
     porClasse[a.classe] = (porClasse[a.classe] || 0) + v;
     total += v;
@@ -100,13 +161,154 @@ function totais() {
   return { porClasse, total, custo };
 }
 
+function somaAlvo(alvo = estado.alvo) {
+  return alvo ? Object.values(alvo).reduce((s, v) => s + v, 0) : 0;
+}
+
+// ---------- Motor de cenário ----------
+
+// Cada sinal ativo gera inclinações (em pontos percentuais) sobre a alocação-base do perfil.
+function sinaisCenario(cx = cenario()) {
+  const sinais = [];
+  const jurosReal = ((1 + cx.selic / 100) / (1 + cx.ipcaFocusAno / 100) - 1) * 100;
+
+  if (jurosReal >= 6) {
+    sinais.push({
+      titulo: `Juro real muito alto (~${pct(jurosReal)} ao ano)`,
+      texto: 'A renda fixa paga muito acima da inflação, então o prêmio para correr risco na bolsa fica menor. Faz sentido reforçar a renda fixa e ser seletivo em ações.',
+      efeitos: { rf_pos: 3, rf_ipca: 2, acoes: -3, fiis: -2 },
+    });
+  } else if (jurosReal <= 3) {
+    sinais.push({
+      titulo: `Juro real baixo (~${pct(jurosReal)} ao ano)`,
+      texto: 'Com renda fixa pagando pouco acima da inflação, ativos reais como ações e FIIs ficam relativamente mais atrativos.',
+      efeitos: { rf_pos: -4, acoes: 2, fiis: 2 },
+    });
+  }
+
+  if (cx.taxaIpcaLongo >= 6.5) {
+    sinais.push({
+      titulo: `Tesouro IPCA+ pagando ~${pct(cx.taxaIpcaLongo)} acima da inflação`,
+      texto: 'Taxas reais raramente ficam neste nível. É uma oportunidade de travar juro real alto por vários anos, levando o título até o vencimento.',
+      efeitos: { rf_ipca: 3, rf_pos: -3 },
+    });
+  }
+
+  if (cx.tendenciaSelic === 'corte') {
+    sinais.push({
+      titulo: 'Ciclo de cortes da Selic',
+      texto: 'Com juros caindo, o pós-fixado passa a render menos ao longo do tempo. Prefixados, FIIs e ações tendem a se beneficiar.',
+      efeitos: { rf_pos: -5, rf_pre: 2, fiis: 2, acoes: 1 },
+    });
+  } else if (cx.tendenciaSelic === 'alta') {
+    sinais.push({
+      titulo: 'Selic em alta',
+      texto: 'Juros subindo favorecem o pós-fixado e pressionam prefixados, FIIs e ações.',
+      efeitos: { rf_pos: 5, rf_pre: -2, fiis: -2, acoes: -1 },
+    });
+  }
+
+  if (cx.ipca12m > cx.tetoMetaIpca || cx.ipcaFocusAno > cx.tetoMetaIpca) {
+    sinais.push({
+      titulo: 'Inflação acima do teto da meta',
+      texto: `IPCA em ${pct(cx.ipca12m, 2)} (12m) e expectativa de ${pct(cx.ipcaFocusAno, 2)} no ano, contra teto de ${pct(cx.tetoMetaIpca)}. Proteção contra inflação (IPCA+) ganha prioridade sobre prefixados.`,
+      efeitos: { rf_ipca: 2, rf_pre: -2 },
+    });
+  }
+
+  if (cx.dolar < cx.dolarFocusFimAno * 0.97) {
+    sinais.push({
+      titulo: `Dólar abaixo do esperado (${fmt(cx.dolar)} hoje contra ${fmt(cx.dolarFocusFimAno)} previsto)`,
+      texto: 'Momento favorável para aumentar a exposição internacional e dolarizar parte do patrimônio, como proteção contra riscos locais.',
+      efeitos: { inter: 3, rf_pos: -3 },
+    });
+  } else if (cx.dolar > cx.dolarFocusFimAno * 1.05) {
+    sinais.push({
+      titulo: `Dólar acima do esperado (${fmt(cx.dolar)})`,
+      texto: 'Com o dólar caro, evite acelerar compras internacionais. Prefira aportes graduais.',
+      efeitos: { inter: -2, rf_pos: 2 },
+    });
+  }
+
+  if (cx.pibFocusAno < 1.5) {
+    sinais.push({
+      titulo: `Crescimento fraco (PIB esperado de ${pct(cx.pibFocusAno)})`,
+      texto: 'Economia desacelerando tende a pesar sobre os lucros das empresas e a vacância de imóveis.',
+      efeitos: { acoes: -2, fiis: -1, rf_pos: 3 },
+    });
+  }
+
+  if (cx.tendenciaFed === 'alta' || (cx.fedFunds >= 3.5 && cx.inflacaoEUA >= 3)) {
+    sinais.push({
+      titulo: `Aperto monetário nos EUA (Fed Funds ${pct(cx.fedFunds, 2)}, ${ROTULO_TENDENCIA[cx.tendenciaFed]})`,
+      texto: 'Juros americanos mais altos drenam liquidez de ativos de risco, especialmente cripto e mercados emergentes.',
+      efeitos: { cripto: -2, acoes: -1, rf_pos: 3 },
+    });
+  } else if (cx.tendenciaFed === 'corte') {
+    sinais.push({
+      titulo: 'Fed cortando juros',
+      texto: 'Liquidez global maior costuma favorecer bolsas, emergentes e cripto.',
+      efeitos: { acoes: 1, cripto: 1, rf_pos: -2 },
+    });
+  }
+
+  if (cx.riscoEleitoral) {
+    sinais.push({
+      titulo: 'Período eleitoral / risco político',
+      texto: 'Eleições costumam trazer volatilidade forte em bolsa, juros e câmbio. Evite perseguir ralis. Mantenha liquidez e faça compras em etapas.',
+      efeitos: { acoes: -2, rf_pos: 2 },
+    });
+  }
+
+  if (cx.riscoGeopolitico) {
+    sinais.push({
+      titulo: 'Tensão geopolítica',
+      texto: 'Conflitos pressionam petróleo e inflação global. Proteção inflacionária e menor exposição a ativos muito voláteis ajudam.',
+      efeitos: { cripto: -1, rf_ipca: 1 },
+    });
+  }
+
+  return { sinais, jurosReal };
+}
+
+// Aplica as inclinações à alocação-base, limitando a ±8 pontos por classe
+function alvoAjustado() {
+  if (!estado.alvo) return null;
+  const { sinais } = sinaisCenario();
+  const base = {};
+  const s = somaAlvo() || 100;
+  for (const c of CLASSES) base[c.id] = ((estado.alvo[c.id] || 0) / s) * 100;
+
+  const incl = Object.fromEntries(CLASSES.map((c) => [c.id, 0]));
+  for (const sinal of sinais) for (const [k, v] of Object.entries(sinal.efeitos)) incl[k] += v;
+
+  const bruto = {};
+  for (const c of CLASSES) {
+    const i = Math.max(-8, Math.min(8, incl[c.id]));
+    // Classe zerada pelo perfil continua zerada; o cenário reduz, mas não elimina, uma classe do perfil
+    bruto[c.id] = base[c.id] === 0 ? 0 : Math.max(base[c.id] * 0.4, base[c.id] + i);
+  }
+  const soma = Object.values(bruto).reduce((a, b) => a + b, 0) || 1;
+  const final = {};
+  for (const c of CLASSES) final[c.id] = Math.round((bruto[c.id] / soma) * 1000) / 10;
+  return { base, final, incl };
+}
+
 // ---------- Abas ----------
 
-document.querySelectorAll('.aba').forEach((b) => b.addEventListener('click', () => {
-  document.querySelectorAll('.aba').forEach((x) => x.classList.toggle('ativa', x === b));
-  document.querySelectorAll('.painel').forEach((p) => p.classList.toggle('ativo', p.id === b.dataset.aba));
-  if (b.dataset.aba === 'avaliacao') renderAvaliacao();
-}));
+function abrirAba(id) {
+  document.querySelectorAll('.aba').forEach((x) => x.classList.toggle('ativa', x.dataset.aba === id));
+  document.querySelectorAll('.painel').forEach((p) => p.classList.toggle('ativo', p.id === id));
+  if (id === 'diagnostico') renderDiagnostico();
+  if (id === 'cenario') renderCenario();
+  window.scrollTo(0, 0);
+}
+
+document.querySelectorAll('.aba').forEach((b) => b.addEventListener('click', () => abrirAba(b.dataset.aba)));
+document.addEventListener('click', (e) => {
+  const l = e.target.closest('[data-ir]');
+  if (l) { e.preventDefault(); abrirAba(l.dataset.ir); }
+});
 
 // ---------- Carteira ----------
 
@@ -125,11 +327,7 @@ $('#form-ativo').addEventListener('submit', (e) => {
     pm,
     pa: paBruto === '' ? pm : parseFloat(paBruto),
   };
-  if (id) {
-    estado.ativos = estado.ativos.map((a) => (a.id === id ? ativo : a));
-  } else {
-    estado.ativos.push(ativo);
-  }
+  estado.ativos = id ? estado.ativos.map((a) => (a.id === id ? ativo : a)) : [...estado.ativos, ativo];
   salvar();
   limparForm();
   renderCarteira();
@@ -183,8 +381,7 @@ function renderCarteira() {
     <div class="kpi"><div class="rotulo">Patrimônio atual</div><div class="valor">${fmt(total)}</div></div>
     <div class="kpi"><div class="rotulo">Total investido</div><div class="valor">${fmt(custo)}</div></div>
     <div class="kpi"><div class="rotulo">Resultado</div><div class="valor ${cls}">${fmt(resultado)}</div></div>
-    <div class="kpi"><div class="rotulo">Rentabilidade</div><div class="valor ${cls}">${pct(rent, 2)}</div></div>
-    <div class="kpi"><div class="rotulo">Perfil</div><div class="valor">${estado.perfil ? PERFIS[estado.perfil].nome : '—'}</div></div>`;
+    <div class="kpi"><div class="rotulo">Rentabilidade</div><div class="valor ${cls}">${pct(rent, 2)}</div></div>`;
 
   const ativos = [...estado.ativos].sort((a, b) => valorAtivo(b) - valorAtivo(a));
   $('#tabela-ativos tbody').innerHTML = ativos.map((a) => {
@@ -193,7 +390,7 @@ function renderCarteira() {
     const rp = custoAtivo(a) > 0 ? (r / custoAtivo(a)) * 100 : 0;
     return `<tr>
       <td><strong>${esc(a.nome)}</strong></td>
-      <td>${classe(a.classe)?.nome || a.classe}</td>
+      <td>${classe(a.classe)?.curto || esc(a.classe)}</td>
       <td class="num">${num(a.qtd)}</td>
       <td class="num">${fmt(a.pm)}</td>
       <td class="num">${fmt(a.pa)}</td>
@@ -201,8 +398,8 @@ function renderCarteira() {
       <td class="num ${r >= 0 ? 'pos' : 'neg'}">${fmt(r)} (${pct(rp)})</td>
       <td class="num">${pct(total ? (v / total) * 100 : 0)}</td>
       <td>
-        <button class="btn sec mini" data-acao="editar" data-id="${a.id}">Editar</button>
-        <button class="btn perigo mini" data-acao="remover" data-id="${a.id}">Remover</button>
+        <button class="btn sec mini" data-acao="editar" data-id="${esc(a.id)}">Editar</button>
+        <button class="btn perigo mini" data-acao="remover" data-id="${esc(a.id)}">Remover</button>
       </td>
     </tr>`;
   }).join('');
@@ -210,7 +407,6 @@ function renderCarteira() {
   $('#tabela-ativos').hidden = ativos.length === 0;
 }
 
-// Backup
 $('#exportar').addEventListener('click', () => {
   const blob = new Blob([JSON.stringify(estado, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
@@ -227,6 +423,7 @@ $('#importar').addEventListener('change', async (e) => {
     const dados = JSON.parse(await arq.text());
     if (!Array.isArray(dados.ativos)) throw new Error('formato');
     estado = Object.assign(estadoInicial(), dados);
+    if (estado.alvo) for (const c of CLASSES) if (estado.alvo[c.id] === undefined) estado.alvo[c.id] = 0;
     salvar();
     renderTudo();
     alert('Backup importado com sucesso.');
@@ -237,7 +434,7 @@ $('#importar').addEventListener('change', async (e) => {
 });
 
 $('#limpar').addEventListener('click', () => {
-  if (!confirm('Apagar todos os ativos e o perfil? Esta ação não pode ser desfeita.')) return;
+  if (!confirm('Apagar todos os ativos, o perfil e os ajustes de cenário? Esta ação não pode ser desfeita.')) return;
   estado = estadoInicial();
   salvar();
   renderTudo();
@@ -249,7 +446,7 @@ function renderPerguntas() {
   $('#form-perfil').innerHTML = PERGUNTAS.map((p) => `
     <fieldset class="pergunta">
       <legend>${p.texto}</legend>
-      ${p.opcoes.map(([txt, pts], i) => `
+      ${p.opcoes.map(([txt], i) => `
         <label><input type="radio" name="${p.id}" value="${i}" ${estado.respostas[p.id] === i ? 'checked' : ''}> ${txt}</label>
       `).join('')}
     </fieldset>`).join('') + '<button class="btn" type="submit">Descobrir meu perfil</button>';
@@ -272,17 +469,19 @@ $('#form-perfil').addEventListener('submit', (e) => {
   estado.alvo = { ...PERFIS[perfil].alvo };
   salvar();
   renderPerfil();
-  renderCarteira();
 });
+
+function semReserva() { return estado.respostas.reserva === 0; }
+function reservaIncompleta() { return estado.respostas.reserva !== undefined && estado.respostas.reserva < 2; }
 
 function renderPerfil() {
   if (estado.perfil) {
     const p = PERFIS[estado.perfil];
-    const semReserva = estado.respostas.reserva === 0;
     $('#resultado-perfil').innerHTML = `
       <div class="perfil-badge">${p.nome}</div>
       <p>${p.desc}</p>
-      ${semReserva ? '<div class="alerta">Você ainda não tem reserva de emergência. Antes de investir em renda variável, monte uma reserva de 6 meses de gastos em renda fixa pós-fixada com liquidez diária.</div>' : ''}`;
+      ${semReserva() ? '<div class="alerta">Você ainda não tem reserva de emergência. Antes de investir em renda variável, monte uma reserva de 6 meses de gastos em renda fixa pós-fixada com liquidez diária.</div>' : ''}
+      <p><a href="#" data-ir="diagnostico">Ver diagnóstico da carteira →</a></p>`;
   } else {
     $('#resultado-perfil').innerHTML = '';
   }
@@ -303,110 +502,249 @@ $('#form-alvo').addEventListener('input', (e) => {
   atualizarSoma();
 });
 
-function somaAlvo() {
-  return estado.alvo ? Object.values(estado.alvo).reduce((s, v) => s + v, 0) : 0;
-}
-
 function atualizarSoma() {
+  const el = $('#soma-alvo');
   if (!estado.alvo) {
-    $('#soma-alvo').textContent = 'Responda o questionário para definir sua alocação-alvo.';
-    $('#soma-alvo').className = 'soma';
+    el.textContent = 'Responda o questionário para definir sua alocação-base.';
+    el.className = 'soma';
     return;
   }
   const s = somaAlvo();
-  $('#soma-alvo').textContent = `Soma: ${pct(s, 0)}${Math.abs(s - 100) > 0.01 ? ' (ajuste para 100%)' : ''}`;
-  $('#soma-alvo').className = `soma ${Math.abs(s - 100) > 0.01 ? 'neg' : 'pos'}`;
+  const errado = Math.abs(s - 100) > 0.01;
+  el.textContent = `Soma: ${pct(s, 0)}${errado ? ' (ajuste para 100%)' : ''}`;
+  el.className = `soma ${errado ? 'neg' : 'pos'}`;
 }
 
-// ---------- Avaliação ----------
+// ---------- Cenário ----------
 
-function avaliar() {
-  const { porClasse, total, custo } = totais();
-  const alvo = estado.alvo;
+function renderCenario() {
+  const cx = cenario();
+  const { sinais, jurosReal } = sinaisCenario(cx);
+  const aj = alvoAjustado();
+  const editado = estado.cenario && Object.keys(estado.cenario).length > 0;
+
+  const kpis = [
+    ['Selic', `${pct(cx.selic, 2)}`, ROTULO_TENDENCIA[cx.tendenciaSelic]],
+    ['IPCA 12 meses', pct(cx.ipca12m, 2), `teto da meta ${pct(cx.tetoMetaIpca)}`],
+    ['Juro real (Selic − IPCA esp.)', pct(jurosReal), `IPCA+ longo ~${pct(cx.taxaIpcaLongo)}`],
+    ['Dólar', `${fmt(cx.dolar)}`, `esperado ${fmt(cx.dolarFocusFimAno)}`],
+    ['PIB esperado', pct(cx.pibFocusAno, 2), 'ano corrente'],
+    ['Juros EUA (Fed)', pct(cx.fedFunds, 2), ROTULO_TENDENCIA[cx.tendenciaFed]],
+  ];
+
+  $('#cenario-conteudo').innerHTML = `
+    <div class="card">
+      <h2>Cenário de referência: ${dataBR(cx.dataReferencia)}${editado ? ' <span class="tag avaliar">editado por você</span>' : ''}</h2>
+      <div class="resumo">
+        ${kpis.map(([r, v, s]) => `<div class="kpi"><div class="rotulo">${r}</div><div class="valor">${v}</div><div class="rotulo">${esc(s)}</div></div>`).join('')}
+      </div>
+      ${!editado && cx.resumo ? `<ul class="limpa">${cx.resumo.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>` : ''}
+    </div>
+    <div class="card">
+      <h2>Como o cenário afeta a alocação</h2>
+      ${sinais.length ? sinais.map(renderSinal).join('') : '<p>Nenhum sinal relevante. A alocação-base do perfil é mantida.</p>'}
+    </div>
+    ${aj ? `
+    <div class="card">
+      <h2>Alocação do perfil × ajustada ao cenário</h2>
+      <div class="tabela-wrap"><table>
+        <thead><tr><th>Classe</th><th class="num">Base do perfil</th><th class="num">Ajuste</th><th class="num">Meta no cenário</th></tr></thead>
+        <tbody>${CLASSES.map((c) => {
+          const d = aj.final[c.id] - aj.base[c.id];
+          return `<tr><td><span style="color:${c.cor}">●</span> ${c.nome}</td>
+            <td class="num">${pct(aj.base[c.id])}</td>
+            <td class="num ${d > 0.05 ? 'pos' : d < -0.05 ? 'neg' : ''}">${d > 0 ? '+' : ''}${pct(d)}</td>
+            <td class="num"><strong>${pct(aj.final[c.id])}</strong></td></tr>`;
+        }).join('')}</tbody>
+      </table></div>
+    </div>` : '<div class="card"><p>Responda o questionário na aba <a href="#" data-ir="perfil">Perfil</a> para ver a alocação ajustada ao cenário.</p></div>'}
+    ${!editado && cx.fontes ? `<div class="card"><h2>Fontes</h2><ul class="limpa">${cx.fontes.map(([t, u]) => `<li><a href="${esc(u)}" target="_blank" rel="noopener">${esc(t)}</a></li>`).join('')}</ul></div>` : ''}`;
+
+  renderFormCenario(cx);
+}
+
+function renderSinal(s) {
+  return `<div class="sinal">
+    <div class="titulo">${esc(s.titulo)}</div>
+    <div class="motivo">${esc(s.texto)}</div>
+    <div class="efeitos">${Object.entries(s.efeitos).map(([k, v]) =>
+      `<span class="chip ${v > 0 ? 'mais' : 'menos'}">${classe(k).curto} ${v > 0 ? '+' : ''}${v}</span>`).join('')}</div>
+  </div>`;
+}
+
+function renderFormCenario(cx) {
+  $('#form-cenario').innerHTML = CAMPOS_CENARIO.map(([k, rot, tipo]) => {
+    if (Array.isArray(tipo)) {
+      return `<label>${rot}<select data-k="${k}">${tipo.map((o) => `<option value="${o}" ${cx[k] === o ? 'selected' : ''}>${ROTULO_TENDENCIA[o]}</option>`).join('')}</select></label>`;
+    }
+    if (tipo === 'bool') {
+      return `<label class="check"><input type="checkbox" data-k="${k}" ${cx[k] ? 'checked' : ''}> ${rot}</label>`;
+    }
+    return `<label>${rot}<input type="${tipo}" step="any" data-k="${k}" value="${esc(cx[k])}"></label>`;
+  }).join('');
+}
+
+$('#form-cenario').addEventListener('change', (e) => {
+  const k = e.target.dataset.k;
+  if (!k) return;
+  const campo = CAMPOS_CENARIO.find((c) => c[0] === k);
+  let v;
+  if (campo[2] === 'bool') v = e.target.checked;
+  else if (campo[2] === 'number') v = parseFloat(e.target.value);
+  else v = e.target.value;
+  if (campo[2] === 'number' && !Number.isFinite(v)) return;
+  estado.cenario = Object.assign({}, estado.cenario, { [k]: v });
+  salvar();
+  renderCenario();
+});
+
+$('#restaurar-cenario').addEventListener('click', () => {
+  estado.cenario = null;
+  salvar();
+  renderCenario();
+  $('#status-bcb').textContent = 'Dados padrão restaurados.';
+});
+
+// Séries do SGS/BCB: 432 = meta Selic, 13522 = IPCA 12 meses, 1 = dólar PTAX venda
+async function serieBCB(codigo) {
+  const r = await fetch(`https://api.bcb.gov.br/dados/serie/bcdata.sgs.${codigo}/dados/ultimos/1?formato=json`);
+  if (!r.ok) throw new Error(r.status);
+  const [d] = await r.json();
+  return parseFloat(String(d.valor).replace(',', '.'));
+}
+
+$('#buscar-bcb').addEventListener('click', async () => {
+  const st = $('#status-bcb');
+  st.textContent = 'Buscando dados no Banco Central...';
+  const novos = {};
+  const pedidos = [['selic', 432], ['ipca12m', 13522], ['dolar', 1]];
+  const res = await Promise.allSettled(pedidos.map(([, c]) => serieBCB(c)));
+  res.forEach((r, i) => { if (r.status === 'fulfilled' && Number.isFinite(r.value)) novos[pedidos[i][0]] = r.value; });
+  if (!Object.keys(novos).length) {
+    st.textContent = 'Não foi possível acessar a API do Banco Central a partir deste navegador. Atualize os campos manualmente.';
+    return;
+  }
+  novos.dataReferencia = new Date().toISOString().slice(0, 10);
+  estado.cenario = Object.assign({}, estado.cenario, novos);
+  salvar();
+  renderCenario();
+  $('#status-bcb').textContent = `Atualizado: ${Object.keys(novos).filter((k) => k !== 'dataReferencia').join(', ')}. Revise tendências e expectativas manualmente.`;
+});
+
+// ---------- Diagnóstico ----------
+
+function diagnosticar(tol = 5) {
+  const { porClasse, total } = totais();
+  const aj = alvoAjustado();
   const linhas = CLASSES.map((c) => {
     const atual = total ? (porClasse[c.id] / total) * 100 : 0;
-    const meta = alvo ? alvo[c.id] || 0 : 0;
+    const meta = aj.final[c.id];
     return { c, valor: porClasse[c.id], atual, meta, desvio: atual - meta };
   });
-  const desvioTotal = linhas.reduce((s, l) => s + Math.abs(l.desvio), 0) / 2;
-  const nota = Math.max(0, Math.round(100 - desvioTotal));
+  const nota = Math.max(0, Math.round(100 - linhas.reduce((s, l) => s + Math.abs(l.desvio), 0) / 2));
+  const porId = Object.fromEntries(linhas.map((l) => [l.c.id, l]));
+
+  // Recomendação por ativo
+  const acoes = estado.ativos.map((a) => {
+    const c = classe(a.classe);
+    const l = porId[a.classe];
+    const peso = total ? (valorAtivo(a) / total) * 100 : 0;
+    let acao = 'manter', motivo = 'Classe próxima da meta para o seu perfil e o cenário atual.';
+
+    if (a.classe === 'cripto' && estado.perfil === 'conservador') {
+      acao = 'vender'; motivo = 'Cripto é muito volátil e incompatível com o perfil conservador.';
+    } else if (!c.rendaFixa && peso > LIMITE_CONCENTRACAO) {
+      acao = 'reduzir'; motivo = `Representa ${pct(peso)} da carteira, acima do limite de ${LIMITE_CONCENTRACAO}% para um único ativo de renda variável.`;
+    } else if (l.meta === 0 && l.atual > 0) {
+      acao = 'vender'; motivo = 'Sua alocação-base não prevê esta classe (meta zero).';
+    } else if (l.desvio > tol) {
+      acao = 'reduzir'; motivo = `${c.curto} está ${pct(l.desvio)} acima da meta. Pare de aportar aqui e considere vender parte para rebalancear.`;
+      if (a.classe === 'rf_pos') motivo += ' Mantenha intacta a parte que é sua reserva de emergência.';
+    } else if (l.desvio < -tol) {
+      acao = 'comprar'; motivo = `${c.curto} está ${pct(-l.desvio)} abaixo da meta. Priorize nos próximos aportes.`;
+    } else if (!c.rendaFixa && peso < 1 && total > 0) {
+      acao = 'avaliar'; motivo = 'Posição muito pequena (< 1% da carteira). Aumente até um peso relevante ou concentre em outro ativo da classe.';
+    } else if (l.desvio < -1) {
+      acao = 'comprar'; motivo = `${c.curto} está levemente abaixo da meta. Pode receber aportes.`;
+    }
+    return { a, peso, acao, motivo };
+  }).sort((x, y) => ORDEM_ACAO[x.acao] - ORDEM_ACAO[y.acao] || y.peso - x.peso);
+
+  // Sugestões de inclusão: classes abaixo da meta com poucos ou nenhum ativo
+  const inclusoes = linhas
+    .filter((l) => l.desvio < -tol / 2 && l.meta > 0)
+    .map((l) => ({ l, qtd: estado.ativos.filter((a) => a.classe === l.c.id).length }))
+    .sort((x, y) => x.l.desvio - y.l.desvio);
 
   const alertas = [];
-  const pontosFortes = [];
+  if (semReserva()) alertas.push('Você não tem reserva de emergência. Antes de qualquer outro movimento, acumule 6 meses de gastos em Tesouro Selic ou CDB com liquidez diária.');
+  const nAcoes = estado.ativos.filter((a) => a.classe === 'acoes').length;
+  const temEtf = estado.ativos.some((a) => a.classe === 'acoes' && /11$/.test(a.nome));
+  if (nAcoes > 0 && nAcoes < 5 && !temEtf) alertas.push(`Só ${nAcoes} ação(ões) na carteira. Diversifique em 5 a 10 empresas de setores diferentes ou use um ETF.`);
+  const nFiis = estado.ativos.filter((a) => a.classe === 'fiis').length;
+  if (nFiis > 0 && nFiis < 3) alertas.push(`Só ${nFiis} FII(s). Diversifique entre ao menos 3 fundos de segmentos distintos.`);
+  const cx = cenario();
+  if (cx.riscoEleitoral && porId.acoes.desvio > 0) alertas.push('Ações acima da meta em período eleitoral. Após um rali forte, considere realizar parte do lucro.');
+  if (porId.rf_pre.atual > 0 && (cx.ipca12m > cx.tetoMetaIpca)) alertas.push('Com inflação acima do teto, prefixados correm o risco de perder para a inflação se ela continuar subindo. Evite aumentar essa posição.');
 
-  for (const l of linhas) {
-    if (l.desvio > 5) alertas.push(`<strong>${l.c.nome}</strong> está ${pct(l.desvio)} acima da meta (${pct(l.atual)} contra ${pct(l.meta, 0)}). Pare de aportar nessa classe por enquanto.`);
-    else if (l.desvio < -5) alertas.push(`<strong>${l.c.nome}</strong> está ${pct(-l.desvio)} abaixo da meta (${pct(l.atual)} contra ${pct(l.meta, 0)}). Priorize essa classe nos próximos aportes.`);
-  }
-
-  for (const a of estado.ativos) {
-    const c = classe(a.classe);
-    const peso = total ? (valorAtivo(a) / total) * 100 : 0;
-    if (c && !c.rendaFixa && peso > 15) {
-      alertas.push(`<strong>${esc(a.nome)}</strong> representa ${pct(peso)} da carteira. Concentração alta em um único ativo de renda variável aumenta o risco.`);
-    }
-  }
-
-  const acoes = estado.ativos.filter((a) => a.classe === 'acoes');
-  const temEtfAcoes = acoes.some((a) => /11$/.test(a.nome));
-  if (acoes.length > 0 && acoes.length < 5 && !temEtfAcoes) {
-    alertas.push(`Você tem só ${acoes.length} ação(ões). Considere ter ao menos 5 a 10 empresas de setores diferentes, ou usar um ETF.`);
-  }
-  const fiis = estado.ativos.filter((a) => a.classe === 'fiis');
-  if (fiis.length > 0 && fiis.length < 3) {
-    alertas.push(`Você tem só ${fiis.length} FII(s). Diversificar entre 3 ou mais fundos e segmentos reduz o risco de vacância e inadimplência.`);
-  }
-
-  if (estado.perfil === 'conservador' && (porClasse.cripto || 0) > 0) {
-    alertas.push('Seu perfil é conservador, mas a carteira tem cripto, que é um ativo de altíssima volatilidade.');
-  }
-  if (estado.respostas.reserva === 0) {
-    alertas.push('Sem reserva de emergência: monte-a antes de aumentar a renda variável.');
-  }
-
-  if (nota >= 90) pontosFortes.push('Carteira bem alinhada ao seu perfil.');
-  const classesComValor = linhas.filter((l) => l.valor > 0).length;
-  if (classesComValor >= 4) pontosFortes.push(`Boa diversificação entre classes (${classesComValor} classes diferentes).`);
-  if (custo > 0 && total > custo) pontosFortes.push(`Carteira com resultado positivo de ${pct(((total - custo) / custo) * 100, 2)}.`);
-
-  return { linhas, nota, alertas, pontosFortes, total };
+  return { linhas, nota, acoes, inclusoes, alertas, total };
 }
+
+const ORDEM_ACAO = { vender: 0, reduzir: 1, comprar: 2, avaliar: 3, manter: 4 };
+const ROTULO_ACAO = { vender: 'Vender', reduzir: 'Reduzir', comprar: 'Comprar mais', avaliar: 'Avaliar', manter: 'Manter' };
 
 function textoNota(n) {
-  if (n >= 90) return 'Excelente alinhamento';
-  if (n >= 75) return 'Bom, com pequenos ajustes';
+  if (n >= 90) return 'Excelente: bem alinhada ao perfil e ao cenário';
+  if (n >= 75) return 'Boa, com pequenos ajustes';
   if (n >= 55) return 'Precisa de rebalanceamento';
-  return 'Muito desalinhada ao perfil';
+  return 'Muito desalinhada ao perfil e ao cenário';
 }
 
-function renderAvaliacao() {
-  const alvo = $('#avaliacao-conteudo');
+function renderDiagnostico() {
+  const alvo = $('#diagnostico-conteudo');
   if (!estado.perfil) {
-    alvo.innerHTML = '<div class="card"><p>Primeiro responda o questionário na aba <strong>Perfil</strong>.</p></div>';
+    alvo.innerHTML = `<div class="card"><h2>Comece por aqui</h2>
+      <ol class="limpa">
+        <li>Responda o questionário na aba <a href="#" data-ir="perfil">Perfil</a>.</li>
+        <li>Cadastre seus investimentos na aba <a href="#" data-ir="carteira">Carteira</a>.</li>
+        <li>Volte aqui para ver se a carteira está adequada ao cenário atual e o que comprar ou vender.</li>
+      </ol></div>`;
     return;
   }
   if (!estado.ativos.length) {
-    alvo.innerHTML = '<div class="card"><p>Cadastre seus ativos na aba <strong>Carteira</strong> para ver a avaliação.</p></div>';
+    alvo.innerHTML = '<div class="card"><p>Cadastre seus investimentos na aba <a href="#" data-ir="carteira">Carteira</a> para ver o diagnóstico.</p></div>';
     return;
   }
-  const { linhas, nota, alertas, pontosFortes } = avaliar();
-  const escala = Math.max(100, ...linhas.map((l) => Math.max(l.atual, l.meta)));
+  const { linhas, nota, acoes, inclusoes, alertas, total } = diagnosticar();
+  const { sinais } = sinaisCenario();
+  const cx = cenario();
+  const escala = Math.max(...linhas.map((l) => Math.max(l.atual, l.meta)), 1);
 
   alvo.innerHTML = `
-    <div class="card">
-      <h2>Nota de aderência ao perfil ${PERFIS[estado.perfil].nome}</h2>
-      <div class="nota">${nota}<small> / 100</small></div>
-      <p>${textoNota(nota)}</p>
-      <p class="dica">A nota mede quanto a carteira está próxima da sua alocação-alvo. ${100 - nota} pontos equivalem à fatia do patrimônio que estaria na classe errada.</p>
+    <div class="cols bloco">
+      <div class="card">
+        <h2>Nota da carteira</h2>
+        <div class="nota">${nota}<small> / 100</small></div>
+        <p>${textoNota(nota)}</p>
+        <p class="dica">Perfil ${PERFIS[estado.perfil].nome}, cenário de ${dataBR(cx.dataReferencia)}. A nota mede a proximidade da carteira (${fmt(total)}) com a meta ajustada ao cenário.</p>
+      </div>
+      <div class="card">
+        <h2>Leitura do cenário</h2>
+        <ul class="limpa">${sinais.slice(0, 5).map((s) => `<li>${esc(s.titulo)}</li>`).join('')}</ul>
+        <p><a href="#" data-ir="cenario">Ver detalhes do cenário →</a></p>
+      </div>
     </div>
+
+    ${alertas.length ? `<div class="card"><h2>Pontos de atenção</h2>${alertas.map((a) => `<div class="alerta">${esc(a)}</div>`).join('')}</div>` : ''}
+
     <div class="card">
-      <h2>Atual x meta por classe</h2>
+      <h2>Alocação atual × meta no cenário</h2>
       <div class="barras">
-        ${linhas.map((l) => `
+        ${linhas.filter((l) => l.atual > 0 || l.meta > 0).map((l) => `
           <div class="barra-linha">
             <div class="cab">
               <span>${l.c.nome}</span>
-              <span class="num">${pct(l.atual)} <span style="color:var(--suave)">/ meta ${pct(l.meta, 0)}</span>
+              <span class="num">${pct(l.atual)} <span style="color:var(--suave)">/ meta ${pct(l.meta)}</span>
                 <span class="${Math.abs(l.desvio) <= 5 ? 'ok' : 'neg'}"> (${l.desvio >= 0 ? '+' : ''}${pct(l.desvio)})</span></span>
             </div>
             <div class="trilho">
@@ -415,111 +753,231 @@ function renderAvaliacao() {
             </div>
           </div>`).join('')}
       </div>
-      <p class="dica">A barra mostra o percentual atual. O traço vertical marca a meta.</p>
+      <p class="dica">A barra mostra o percentual atual. O traço vertical marca a meta ajustada ao cenário.</p>
     </div>
+
     <div class="card">
-      <h2>Pontos de atenção</h2>
-      ${alertas.length ? alertas.map((a) => `<div class="alerta">${a}</div>`).join('') : '<p class="ok">Nenhum ponto de atenção relevante.</p>'}
-      ${pontosFortes.length ? `<h3>Pontos fortes</h3><ul>${pontosFortes.map((p) => `<li>${p}</li>`).join('')}</ul>` : ''}
-    </div>`;
+      <h2>O que fazer com cada ativo</h2>
+      <div class="tabela-wrap"><table>
+        <thead><tr><th>Ativo</th><th>Classe</th><th class="num">% carteira</th><th>Ação</th><th>Por quê</th></tr></thead>
+        <tbody>${acoes.map((x) => `<tr>
+          <td><strong>${esc(x.a.nome)}</strong></td>
+          <td>${classe(x.a.classe).curto}</td>
+          <td class="num">${pct(x.peso)}</td>
+          <td><span class="tag ${x.acao}">${ROTULO_ACAO[x.acao]}</span></td>
+          <td class="motivo">${esc(x.motivo)}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>
+      <p class="dica">Para saber quanto vender e onde aplicar, use o <a href="#" data-ir="plano">Plano de ação</a>.</p>
+    </div>
+
+    ${inclusoes.length ? `
+    <div class="card">
+      <h2>O que incluir na carteira</h2>
+      ${inclusoes.map(({ l, qtd }) => `
+        <h3><span style="color:${l.c.cor}">●</span> ${l.c.nome}: faltam ${pct(-l.desvio)} (≈ ${fmt((-l.desvio / 100) * total)})</h3>
+        ${qtd ? `<p class="dica">Você já tem ${qtd} ativo(s) nesta classe. Pode reforçá-los ou diversificar com:</p>` : ''}
+        ${CATALOGO[l.c.id].map(([n, d]) => `<div class="sugestao"><strong>${esc(n)}</strong><span class="motivo">${esc(d)}</span></div>`).join('')}
+      `).join('')}
+    </div>` : ''}`;
 }
 
-// ---------- Aporte ----------
+// ---------- Plano de ação ----------
 
-function sugerirAporte(valor) {
-  const { porClasse, total } = totais();
-  const soma = somaAlvo();
-  const novoTotal = total + valor;
+function gerarPlano(aporte, permitirVendas, tol, reserva = 0) {
+  const { total } = totais();
+  const meta = alvoAjustado().final;
+  const novoTotal = total + aporte;
+  const vendas = new Map(); // id -> { a, valor, motivo }
 
-  // Quanto falta em cada classe para atingir a meta após o aporte
-  const deficits = CLASSES.map((c) => {
-    const meta = ((estado.alvo[c.id] || 0) / soma) * novoTotal;
-    return { c, falta: Math.max(0, meta - (porClasse[c.id] || 0)) };
-  });
+  const addVenda = (a, valor, motivo) => {
+    const max = valorAtivo(a) - (vendas.get(a.id)?.valor || 0);
+    const v = Math.min(valor, max);
+    if (v < 1) return;
+    const atual = vendas.get(a.id);
+    vendas.set(a.id, { a, valor: (atual?.valor || 0) + v, motivo: atual ? `${atual.motivo} ${motivo}` : motivo });
+  };
+
+  if (permitirVendas && total > 0) {
+    // 1) Ativos inadequados ou concentrados
+    for (const a of estado.ativos) {
+      const c = classe(a.classe);
+      if ((a.classe === 'cripto' && estado.perfil === 'conservador') || meta[a.classe] === 0) {
+        addVenda(a, valorAtivo(a), 'Classe fora do seu perfil.');
+        continue;
+      }
+      const limite = (LIMITE_CONCENTRACAO / 100) * novoTotal;
+      if (!c.rendaFixa && valorAtivo(a) > limite) {
+        addVenda(a, valorAtivo(a) - limite, `Reduz concentração para ${LIMITE_CONCENTRACAO}% da carteira.`);
+      }
+    }
+    // 2) Classes muito acima da meta: vende o excesso, começando pelos maiores ativos
+    for (const c of CLASSES) {
+      const ativos = estado.ativos.filter((a) => a.classe === c.id);
+      const restante = ativos.reduce((s, a) => s + valorAtivo(a) - (vendas.get(a.id)?.valor || 0), 0);
+      let excesso = restante - (meta[c.id] / 100) * novoTotal;
+      // A reserva de emergência (em RF pós) nunca é vendida
+      if (c.id === 'rf_pos') excesso = Math.min(excesso, restante - reserva);
+      if (excesso > (tol / 100) * novoTotal) {
+        let falta = excesso;
+        const ordenados = [...ativos].sort((x, y) => valorAtivo(y) - valorAtivo(x));
+        for (const a of ordenados) {
+          if (falta < 1) break;
+          const disp = valorAtivo(a) - (vendas.get(a.id)?.valor || 0);
+          // Distribui proporcionalmente ao tamanho de cada posição
+          const parte = Math.min(disp, (disp / restante) * excesso);
+          addVenda(a, parte, `${c.curto} acima da meta no cenário.`);
+          falta -= parte;
+        }
+      }
+    }
+  }
+
+  const totalVendas = [...vendas.values()].reduce((s, v) => s + v.valor, 0);
+  const caixa = aporte + totalVendas;
+
+  // Valor por classe após as vendas
+  const apos = Object.fromEntries(CLASSES.map((c) => [c.id, 0]));
+  for (const a of estado.ativos) apos[a.classe] += valorAtivo(a) - (vendas.get(a.id)?.valor || 0);
+
+  const deficits = CLASSES.map((c) => ({ c, falta: Math.max(0, (meta[c.id] / 100) * novoTotal - apos[c.id]) }));
   const somaDef = deficits.reduce((s, d) => s + d.falta, 0);
-
-  return deficits
+  const compras = deficits
     .map((d) => {
-      const valorClasse = somaDef > 0 ? (d.falta / somaDef) * valor : 0;
-      return { ...d, valor: valorClasse, ativos: distribuirNaClasse(d.c.id, valorClasse) };
+      const valor = somaDef > 0 ? (d.falta / somaDef) * caixa : 0;
+      return { ...d, valor, ativos: distribuirNaClasse(d.c.id, valor, vendas) };
     })
-    .filter((d) => d.valor >= 0.01)
-    .sort((a, b) => b.valor - a.valor);
+    .filter((d) => d.valor >= 1)
+    .sort((x, y) => y.valor - x.valor);
+
+  // Alocação final
+  const final = { ...apos };
+  for (const cp of compras) final[cp.c.id] += cp.valor;
+
+  return { vendas: [...vendas.values()].sort((x, y) => y.valor - x.valor), totalVendas, caixa, compras, final, novoTotal, meta };
 }
 
-// Dentro da classe, direciona o dinheiro para os ativos menores, buscando pesos iguais
-function distribuirNaClasse(classeId, valor) {
-  const ativos = estado.ativos.filter((a) => a.classe === classeId);
+// Dentro da classe, direciona o dinheiro para os ativos menores, buscando pesos iguais.
+// Ativos que estão sendo vendidos não recebem compras.
+function distribuirNaClasse(classeId, valor, vendas) {
+  const ativos = estado.ativos.filter((a) => a.classe === classeId && !vendas.has(a.id));
   if (!ativos.length || valor <= 0) return [];
   const atuais = ativos.map((a) => ({ a, v: valorAtivo(a), add: 0 }));
   const alvoIgual = (atuais.reduce((s, x) => s + x.v, 0) + valor) / atuais.length;
   const faltas = atuais.map((x) => Math.max(0, alvoIgual - x.v));
   const somaF = faltas.reduce((s, f) => s + f, 0);
   atuais.forEach((x, i) => { x.add = somaF > 0 ? (faltas[i] / somaF) * valor : valor / atuais.length; });
-  return atuais.filter((x) => x.add >= 0.01).sort((p, q) => q.add - p.add);
+  return atuais.filter((x) => x.add >= 1).sort((p, q) => q.add - p.add);
 }
 
-$('#form-aporte').addEventListener('submit', (e) => {
+function notaIR(a) {
+  const c = a.classe;
+  if (c === 'acoes' && !/11$/.test(a.nome)) return 'Ações: vendas de até R$ 20 mil no mês são isentas de IR sobre o lucro. Acima disso, 15%.';
+  if (c === 'acoes' || c === 'inter' || c === 'cripto') return 'ETF/BDR: 15% de IR sobre o lucro, sem isenção de R$ 20 mil.';
+  if (c === 'fiis') return 'FIIs: 20% de IR sobre o lucro na venda.';
+  return 'Renda fixa: IR regressivo de 22,5% a 15% (LCI/LCA isentas). Vender títulos antes do vencimento pode gerar perda por marcação a mercado.';
+}
+
+$('#form-plano').addEventListener('submit', (e) => {
   e.preventDefault();
-  const saida = $('#resultado-aporte');
+  const saida = $('#resultado-plano');
   if (!estado.alvo) {
-    saida.innerHTML = '<div class="card"><p>Primeiro defina seu perfil na aba <strong>Perfil</strong>.</p></div>';
+    saida.innerHTML = '<div class="card"><p>Primeiro defina seu perfil na aba <a href="#" data-ir="perfil">Perfil</a>.</p></div>';
     return;
   }
   if (Math.abs(somaAlvo() - 100) > 0.01) {
-    saida.innerHTML = '<div class="card"><p class="neg">A alocação-alvo precisa somar 100%. Ajuste na aba Perfil.</p></div>';
+    saida.innerHTML = '<div class="card"><p class="neg">A alocação-base precisa somar 100%. Ajuste na aba Perfil.</p></div>';
     return;
   }
-  const valor = parseFloat($('#valor-aporte').value);
-  if (!(valor > 0)) return;
+  const aporte = parseFloat($('#valor-aporte').value) || 0;
+  const permitir = $('#permitir-vendas').checked;
+  const tol = parseFloat($('#tolerancia').value) || 0;
+  const reserva = parseFloat($('#reserva-valor').value) || 0;
+  estado.reservaValor = reserva;
+  salvar();
+  if (aporte <= 0 && !permitir) {
+    saida.innerHTML = '<div class="card"><p>Informe um aporte ou marque "Permitir vendas" para rebalancear.</p></div>';
+    return;
+  }
+  if (!estado.ativos.length && aporte <= 0) {
+    saida.innerHTML = '<div class="card"><p>Cadastre seus ativos ou informe um aporte.</p></div>';
+    return;
+  }
 
-  const sugestao = sugerirAporte(valor);
-  const reservaAviso = estado.respostas.reserva !== undefined && estado.respostas.reserva < 2
-    ? '<div class="alerta">Você ainda não completou a reserva de emergência. Considere direcionar o aporte para renda fixa pós-fixada com liquidez diária até completá-la.</div>' : '';
+  const p = gerarPlano(aporte, permitir, tol, reserva);
+  const { porClasse, total } = totais();
 
   saida.innerHTML = `
-    <div class="card">
-      <h2>Como dividir ${fmt(valor)}</h2>
-      ${reservaAviso}
-      <div class="tabela-wrap"><table>
-        <thead><tr><th>Classe</th><th class="num">Valor</th><th class="num">% do aporte</th></tr></thead>
-        <tbody>
-          ${sugestao.map((s) => `<tr>
-            <td><span style="color:${s.c.cor}">●</span> ${s.c.nome}</td>
-            <td class="num">${fmt(s.valor)}</td>
-            <td class="num">${pct((s.valor / valor) * 100)}</td>
-          </tr>`).join('')}
-        </tbody>
-      </table></div>
+    ${reservaIncompleta() ? '<div class="alerta">Sua reserva de emergência não está completa. Considere direcionar o aporte primeiro para Tesouro Selic ou CDB com liquidez diária até completá-la.</div>' : ''}
+    <div class="resumo">
+      <div class="kpi"><div class="rotulo">Aporte</div><div class="valor">${fmt(aporte)}</div></div>
+      <div class="kpi"><div class="rotulo">Vendas sugeridas</div><div class="valor ${p.totalVendas ? 'neg' : ''}">${fmt(p.totalVendas)}</div></div>
+      <div class="kpi"><div class="rotulo">Total para comprar</div><div class="valor pos">${fmt(p.caixa)}</div></div>
     </div>
-    ${sugestao.map((s) => `
-      <div class="card">
-        <h3 style="margin-top:0"><span style="color:${s.c.cor}">●</span> ${s.c.nome}: ${fmt(s.valor)}</h3>
-        ${s.ativos.length ? `
-          <div class="tabela-wrap"><table>
-            <thead><tr><th>Ativo</th><th class="num">Valor sugerido</th><th class="num">Preço atual</th><th class="num">Qtd aprox.</th></tr></thead>
-            <tbody>
-              ${s.ativos.map((x) => `<tr>
-                <td>${esc(x.a.nome)}</td>
-                <td class="num">${fmt(x.add)}</td>
-                <td class="num">${fmt(x.a.pa)}</td>
-                <td class="num">${s.c.rendaFixa ? '—' : num(Math.floor(x.add / (x.a.pa || x.a.pm)))}</td>
-              </tr>`).join('')}
-            </tbody>
-          </table></div>
-          <p class="dica">Dentro da classe, o valor vai primeiro para os ativos com menor posição, para equilibrar os pesos.</p>`
-          : `<p class="dica">Você ainda não tem ativos nesta classe. Opções comuns: ${s.c.exemplos}.</p>`}
-      </div>`).join('')}`;
+
+    ${permitir ? `
+    <div class="card">
+      <h2>1. Vender / reduzir</h2>
+      ${p.vendas.length ? `<div class="tabela-wrap"><table>
+        <thead><tr><th>Ativo</th><th class="num">Valor a vender</th><th class="num">Qtd aprox.</th><th>Motivo</th><th>Imposto</th></tr></thead>
+        <tbody>${p.vendas.map((v) => {
+          const lucro = (preco(v.a) - v.a.pm) * (v.valor / preco(v.a));
+          return `<tr>
+          <td><strong>${esc(v.a.nome)}</strong></td>
+          <td class="num">${fmt(v.valor)}</td>
+          <td class="num">${classe(v.a.classe).rendaFixa ? '—' : num(Math.ceil(v.valor / preco(v.a)))}</td>
+          <td class="motivo">${esc(v.motivo)}</td>
+          <td class="motivo">${lucro > 0 ? `Lucro estimado de ${fmt(lucro)}. ` : 'Sem lucro nesta venda. '}${notaIR(v.a)}</td>
+        </tr>`;
+        }).join('')}</tbody>
+      </table></div>
+      <p class="dica">Se o imposto for alto, você pode apenas parar de aportar nesses ativos e rebalancear aos poucos com os aportes.</p>`
+      : '<p class="ok">Nenhuma venda necessária: a carteira está dentro da tolerância.</p>'}
+    </div>` : ''}
+
+    <div class="card">
+      <h2>${permitir ? '2. ' : ''}Comprar / aportar</h2>
+      ${p.compras.length ? p.compras.map((cp) => `
+        <h3><span style="color:${cp.c.cor}">●</span> ${cp.c.nome}: ${fmt(cp.valor)}</h3>
+        ${cp.ativos.length ? `<div class="tabela-wrap"><table>
+          <thead><tr><th>Ativo</th><th class="num">Valor</th><th class="num">Preço atual</th><th class="num">Qtd aprox.</th></tr></thead>
+          <tbody>${cp.ativos.map((x) => `<tr>
+            <td>${esc(x.a.nome)}</td>
+            <td class="num">${fmt(x.add)}</td>
+            <td class="num">${fmt(preco(x.a))}</td>
+            <td class="num">${cp.c.rendaFixa ? '—' : num(Math.floor(x.add / preco(x.a)))}</td>
+          </tr>`).join('')}</tbody>
+        </table></div>
+        <p class="dica">Ou diversifique com: ${CATALOGO[cp.c.id].map((i) => esc(i[0])).join(' · ')}</p>`
+        : `<p class="dica">Você não tem ativos nesta classe. Opções:</p>
+          ${CATALOGO[cp.c.id].map(([n, d]) => `<div class="sugestao"><strong>${esc(n)}</strong><span class="motivo">${esc(d)}</span></div>`).join('')}`}
+      `).join('') : '<p>Nada a comprar.</p>'}
+    </div>
+
+    <div class="card">
+      <h2>Resultado após o plano</h2>
+      <div class="tabela-wrap"><table>
+        <thead><tr><th>Classe</th><th class="num">Hoje</th><th class="num">Depois</th><th class="num">Meta no cenário</th></tr></thead>
+        <tbody>${CLASSES.filter((c) => porClasse[c.id] > 0 || p.meta[c.id] > 0).map((c) => `<tr>
+          <td><span style="color:${c.cor}">●</span> ${c.nome}</td>
+          <td class="num">${pct(total ? (porClasse[c.id] / total) * 100 : 0)}</td>
+          <td class="num"><strong>${pct(p.novoTotal ? (p.final[c.id] / p.novoTotal) * 100 : 0)}</strong></td>
+          <td class="num">${pct(p.meta[c.id])}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>
+    </div>`;
 });
 
 // ---------- Início ----------
 
 function renderTudo() {
+  $('#reserva-valor').value = estado.reservaValor || '';
   renderCarteira();
   renderPerguntas();
   renderPerfil();
-  renderAvaliacao();
-  $('#resultado-aporte').innerHTML = '';
+  renderCenario();
+  renderDiagnostico();
+  $('#resultado-plano').innerHTML = '';
 }
 
 renderTudo();

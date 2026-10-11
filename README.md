@@ -1,13 +1,27 @@
 # Minha Carteira
 
-Site estático para acompanhar investimentos, sem dependências. Tem três funções:
+Site estático, sem dependências. Avalia sua carteira de investimentos de acordo com o seu perfil e o cenário econômico atual, no Brasil e no mundo. Também sugere o que comprar, vender e onde aportar.
 
-- **Carteira**: cadastro de ativos com quantidade, preço médio e preço atual. Mostra patrimônio, resultado e rentabilidade.
-- **Perfil e avaliação**: um questionário define seu perfil (conservador, moderado ou arrojado) e uma alocação-alvo, que você pode editar. A carteira recebe uma nota de aderência de 0 a 100 e alertas de desvio, concentração e diversificação.
-- **Aporte mensal**: divide o aporte entre as classes que estão abaixo da meta. Dentro de cada classe, o dinheiro vai para os ativos com menor posição.
+## Abas
+
+- **Diagnóstico**: nota de 0 a 100, alocação atual comparada com a meta ajustada ao cenário, ação sugerida para cada ativo (vender, reduzir, comprar mais, manter) com o motivo, e o que incluir na carteira.
+- **Plano de ação**: recebe o valor do aporte do mês e, opcionalmente, permite vendas para rebalancear. Indica quanto vender de cada ativo, com uma estimativa de IR, e onde comprar. A reserva de emergência informada nunca entra nas vendas.
+- **Cenário**: indicadores (Selic, IPCA, juro real, dólar, PIB, Fed) e os sinais que inclinam a alocação. Os valores podem ser editados, e há uma tentativa de busca automática na API do Banco Central.
+- **Carteira**: cadastro de ativos, com backup em JSON.
+- **Perfil**: questionário que define o perfil e a alocação-base.
+
+## Como as recomendações são calculadas
+
+1. O perfil (conservador, moderado ou arrojado) define uma alocação-base entre 7 classes de ativos.
+2. Cada sinal do cenário (juro real alto, ciclo de cortes, inflação acima do teto, dólar barato, aperto do Fed, eleições etc.) soma ou subtrai pontos percentuais por classe. O ajuste é limitado a ±8 pontos por classe.
+3. A carteira é comparada com essa meta. Desvios acima da tolerância e concentrações acima de 15% em um único ativo de renda variável geram as recomendações.
+
+## Atualizando o cenário
+
+Os dados de referência ficam em `cenario.js`. Atualize esse arquivo periodicamente (depois de reuniões do Copom e do Fed, ou de um novo Boletim Focus) ou edite os valores pela aba **Cenário**.
 
 ## Como usar
 
-Abra o `index.html` no navegador. Os dados ficam no `localStorage` do navegador. Use **Exportar backup** para salvar uma cópia em JSON.
+Abra o `index.html` no navegador. Os dados ficam no `localStorage` do navegador.
 
-> Ferramenta educacional. Não é recomendação de investimento.
+> Ferramenta educacional baseada em regras gerais de alocação. Não é recomendação individual de investimento.
