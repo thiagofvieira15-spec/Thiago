@@ -268,6 +268,59 @@ def etfs():
     return out
 
 
+def mediana(vals):
+    v = sorted(x for x in vals if x is not None)
+    if not v:
+        return None
+    m = len(v) // 2
+    return round(v[m] if len(v) % 2 else (v[m - 1] + v[m]) / 2, 2)
+
+
+def setores(acoes_dados):
+    """Associa cada ação ao seu setor (Fundamentus) e calcula as medianas de cada setor."""
+    nomes, membros = {}, {}
+    vazios = 0
+    for n in range(1, 61):
+        try:
+            cab, linhas = tabela(f"https://www.fundamentus.com.br/resultado.php?setor={n}")
+        except Exception:
+            vazios += 1
+            if vazios >= 8:
+                break
+            continue
+        tickers = [l[0].upper() for l in linhas if l and l[0].upper() in acoes_dados]
+        if not tickers:
+            continue
+        vazios = 0
+        membros[n] = tickers
+        # Nome do setor: página de detalhes de uma ação do setor
+        try:
+            html = baixar(f"https://www.fundamentus.com.br/detalhes.php?papel={tickers[0]}")
+            m = re.search(r">Setor<.*?<a[^>]*>([^<]+)</a>", html, re.S)
+            nomes[n] = " ".join(m.group(1).split()) if m else f"Setor {n}"
+        except Exception:
+            nomes[n] = f"Setor {n}"
+        time.sleep(0.2)
+    out = {}
+    for n, tickers in membros.items():
+        nome = nomes[n]
+        for t in tickers:
+            acoes_dados[t]["setor"] = nome
+        if len(tickers) < 3:
+            continue
+        dados = [acoes_dados[t] for t in tickers]
+        med = {"n": len(tickers)}
+        for k in ("pl", "pvp", "roe", "margem", "dy", "divPl"):
+            # P/L negativo (prejuízo) não entra na mediana
+            vals = [d.get(k) for d in dados if not (k == "pl" and (d.get(k) or 0) <= 0)]
+            mv = mediana(vals)
+            if mv is not None:
+                med[k] = mv
+        out[nome] = med
+    print(f"setores: {len(out)} com mediana, {sum(len(t) for t in membros.values())} ações classificadas")
+    return out
+
+
 def etfs_eua():
     """Cotação em dólar de ETFs americanos (Stooq, CSV público)."""
     js = (RAIZ / "fundamentos.js").read_text(encoding="utf-8")
@@ -374,6 +427,12 @@ def main():
             print(f"ERRO em {nome}: {e}", file=sys.stderr)
             resultado[nome] = anterior.get(nome, {})
             resultado["fontes"][nome] = anterior.get("fontes", {}).get(nome, fonte) + " (dados anteriores)"
+    try:
+        if resultado.get("acoes"):
+            resultado["setores"] = setores(resultado["acoes"]) or anterior.get("setores", {})
+    except Exception as e:
+        print(f"ERRO em setores: {e}", file=sys.stderr)
+        resultado["setores"] = anterior.get("setores", {})
     try:
         resultado["macro"] = macro() or anterior.get("macro", {})
     except Exception as e:
