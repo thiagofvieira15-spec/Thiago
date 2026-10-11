@@ -1,0 +1,122 @@
+:root {
+  --bg: #f5f6f8;
+  --card: #ffffff;
+  --texto: #1d2330;
+  --suave: #5f6878;
+  --borda: #e1e4ea;
+  --primaria: #1f6feb;
+  --positivo: #1a7f37;
+  --negativo: #cf222e;
+  --alerta: #9a6700;
+  --alerta-bg: #fff8e1;
+  --raio: 10px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1218;
+    --card: #181c24;
+    --texto: #e6e8ec;
+    --suave: #9aa3b2;
+    --borda: #2a303b;
+    --primaria: #4c8dff;
+    --positivo: #3fb950;
+    --negativo: #f85149;
+    --alerta: #e3b341;
+    --alerta-bg: #2b2410;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--texto);
+  line-height: 1.45;
+}
+
+.topo { padding: 20px 16px 0; max-width: 1100px; margin: 0 auto; }
+.topo h1 { margin: 0; font-size: 1.6rem; }
+.sub { margin: 4px 0 16px; color: var(--suave); }
+
+.abas { display: flex; gap: 4px; overflow-x: auto; border-bottom: 1px solid var(--borda); }
+.aba {
+  background: none; border: none; color: var(--suave); padding: 10px 14px;
+  font-size: 0.95rem; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;
+}
+.aba.ativa { color: var(--texto); border-bottom-color: var(--primaria); font-weight: 600; }
+
+main { max-width: 1100px; margin: 0 auto; padding: 16px; }
+.painel { display: none; }
+.painel.ativo { display: block; }
+
+.card {
+  background: var(--card); border: 1px solid var(--borda); border-radius: var(--raio);
+  padding: 16px; margin-bottom: 16px;
+}
+.card h2 { margin: 0 0 12px; font-size: 1.1rem; }
+.card h3 { margin: 16px 0 8px; font-size: 1rem; }
+
+.grade-form {
+  display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); align-items: end;
+}
+label { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; color: var(--suave); }
+input, select {
+  font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--borda);
+  background: var(--bg); color: var(--texto);
+}
+.acoes-form { display: flex; gap: 8px; }
+
+.btn {
+  font: inherit; padding: 9px 14px; border-radius: 8px; border: 1px solid var(--primaria);
+  background: var(--primaria); color: #fff; cursor: pointer; display: inline-flex; align-items: center;
+}
+.btn.sec { background: transparent; color: var(--primaria); }
+.btn.perigo { background: transparent; color: var(--negativo); border-color: var(--negativo); }
+.btn.mini { padding: 4px 8px; font-size: 0.8rem; }
+.linha-botoes { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.dica { color: var(--suave); font-size: 0.85rem; margin: 10px 0 0; }
+.vazio { color: var(--suave); text-align: center; padding: 12px; }
+
+.tabela-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+th, td { padding: 8px; border-bottom: 1px solid var(--borda); text-align: left; white-space: nowrap; }
+th { color: var(--suave); font-weight: 500; font-size: 0.8rem; }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+.pos { color: var(--positivo); }
+.neg { color: var(--negativo); }
+
+.resumo { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-bottom: 16px; }
+.kpi { background: var(--card); border: 1px solid var(--borda); border-radius: var(--raio); padding: 14px; }
+.kpi .rotulo { color: var(--suave); font-size: 0.8rem; }
+.kpi .valor { font-size: 1.35rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.pergunta { border: none; padding: 0; margin: 0 0 14px; }
+.pergunta legend { font-weight: 600; margin-bottom: 6px; }
+.pergunta label { flex-direction: row; align-items: center; gap: 8px; color: var(--texto); font-size: 0.9rem; padding: 3px 0; }
+
+.perfil-badge {
+  display: inline-block; padding: 6px 12px; border-radius: 999px; background: var(--primaria);
+  color: #fff; font-weight: 600; margin: 8px 0;
+}
+.soma { font-weight: 600; margin: 10px 0 0; }
+
+.barras { display: flex; flex-direction: column; gap: 14px; }
+.barra-linha .cab { display: flex; justify-content: space-between; font-size: 0.88rem; margin-bottom: 4px; gap: 8px; }
+.trilho { position: relative; height: 12px; background: var(--bg); border-radius: 6px; border: 1px solid var(--borda); }
+.preench { position: absolute; inset: 0 auto 0 0; border-radius: 6px; }
+.marca { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--texto); }
+
+.nota { font-size: 2.6rem; font-weight: 700; line-height: 1; }
+.nota small { font-size: 1rem; color: var(--suave); font-weight: 400; }
+
+.alerta {
+  background: var(--alerta-bg); color: var(--alerta); border-radius: 8px; padding: 10px 12px; margin: 8px 0;
+  font-size: 0.9rem;
+}
+.ok { color: var(--positivo); }
+
+.rodape { text-align: center; color: var(--suave); font-size: 0.8rem; padding: 24px 16px 40px; }

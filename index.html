@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Minha Carteira</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topo">
+    <h1>Minha Carteira</h1>
+    <p class="sub">Controle, avaliação por perfil e sugestão de aportes</p>
+    <nav class="abas" role="tablist">
+      <button class="aba ativa" data-aba="carteira">Carteira</button>
+      <button class="aba" data-aba="perfil">Perfil</button>
+      <button class="aba" data-aba="avaliacao">Avaliação</button>
+      <button class="aba" data-aba="aporte">Aporte mensal</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- CARTEIRA -->
+    <section id="carteira" class="painel ativo">
+      <div class="resumo" id="resumo"></div>
+
+      <div class="card">
+        <h2 id="form-titulo">Adicionar ativo</h2>
+        <form id="form-ativo" class="grade-form">
+          <input type="hidden" id="ativo-id">
+          <label>Ativo / ticker
+            <input id="ativo-nome" required placeholder="Ex.: ITSA4, Tesouro Selic 2029">
+          </label>
+          <label>Classe
+            <select id="ativo-classe" required></select>
+          </label>
+          <label>Quantidade
+            <input id="ativo-qtd" type="number" step="any" min="0" required placeholder="100">
+          </label>
+          <label>Preço médio (R$)
+            <input id="ativo-pm" type="number" step="any" min="0" required placeholder="10,00">
+          </label>
+          <label>Preço atual (R$)
+            <input id="ativo-pa" type="number" step="any" min="0" placeholder="Igual ao médio se vazio">
+          </label>
+          <div class="acoes-form">
+            <button type="submit" class="btn">Salvar</button>
+            <button type="button" class="btn sec" id="cancelar-edicao" hidden>Cancelar</button>
+          </div>
+        </form>
+        <p class="dica">Para renda fixa, use quantidade 1 e informe o valor aplicado como preço médio e o valor atual como preço atual.</p>
+      </div>
+
+      <div class="card">
+        <h2>Ativos</h2>
+        <div class="tabela-wrap">
+          <table id="tabela-ativos">
+            <thead>
+              <tr>
+                <th>Ativo</th><th>Classe</th><th class="num">Qtd</th><th class="num">P. médio</th>
+                <th class="num">P. atual</th><th class="num">Total</th><th class="num">Resultado</th><th class="num">% carteira</th><th></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p id="vazio" class="vazio">Nenhum ativo cadastrado ainda.</p>
+      </div>
+
+      <div class="card linha-botoes">
+        <button class="btn sec" id="exportar">Exportar backup (JSON)</button>
+        <label class="btn sec">Importar backup<input type="file" id="importar" accept="application/json" hidden></label>
+        <button class="btn perigo" id="limpar">Apagar tudo</button>
+      </div>
+    </section>
+
+    <!-- PERFIL -->
+    <section id="perfil" class="painel">
+      <div class="card">
+        <h2>Questionário de perfil</h2>
+        <form id="form-perfil"></form>
+        <div id="resultado-perfil"></div>
+      </div>
+      <div class="card">
+        <h2>Alocação-alvo</h2>
+        <p class="dica">Preenchida a partir do seu perfil. Você pode ajustar os percentuais. A soma precisa dar 100%.</p>
+        <form id="form-alvo" class="grade-form"></form>
+        <p id="soma-alvo" class="soma"></p>
+      </div>
+    </section>
+
+    <!-- AVALIACAO -->
+    <section id="avaliacao" class="painel">
+      <div id="avaliacao-conteudo"></div>
+    </section>
+
+    <!-- APORTE -->
+    <section id="aporte" class="painel">
+      <div class="card">
+        <h2>Sugestão de aporte</h2>
+        <form id="form-aporte" class="grade-form">
+          <label>Valor do aporte mensal (R$)
+            <input id="valor-aporte" type="number" step="any" min="0" required placeholder="1000">
+          </label>
+          <div class="acoes-form"><button class="btn" type="submit">Calcular</button></div>
+        </form>
+        <p class="dica">O aporte vai primeiro para as classes que estão abaixo da meta. Assim você rebalanceia a carteira sem precisar vender nada.</p>
+      </div>
+      <div id="resultado-aporte"></div>
+    </section>
+  </main>
+
+  <footer class="rodape">
+    Ferramenta educacional. Não é recomendação de investimento. Os dados ficam salvos apenas neste navegador.
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
