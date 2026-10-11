@@ -115,7 +115,6 @@ def acoes():
         # Ignora papéis sem negociação recente
         if not d["preco"] or not d["liq"]:
             continue
-        d.pop("liq")
         # Bancos e seguradoras aparecem com margem e dívida zeradas (não se aplicam)
         if not d.get("margem") and not d.get("divPl"):
             d.pop("margem", None)
@@ -303,7 +302,8 @@ def setores(acoes_dados, anterior_acoes):
         time.sleep(0.25)
     grupos = {}
     for t, d in acoes_dados.items():
-        if d.get("setor"):
+        # Só ações com liquidez relevante (> R$ 1 milhão/dia) entram na mediana: as quase sem negócios distorcem
+        if d.get("setor") and (d.get("liq") or 0) >= 1_000_000:
             grupos.setdefault(d["setor"], []).append(d)
     out = {}
     for nome, dados in grupos.items():
