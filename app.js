@@ -938,6 +938,8 @@ function renderDiagnostico() {
       <p class="dica">Para saber quanto vender e onde aplicar, use o <a href="#" data-ir="plano">Plano de ação</a>.</p>
     </div>
 
+    ${typeof cardPerfilAcoes === 'function' ? cardPerfilAcoes() : ''}
+
     ${inclusoes.length ? `
     <div class="card">
       <h2>O que incluir na carteira</h2>

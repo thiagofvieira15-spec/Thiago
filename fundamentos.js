@@ -326,6 +326,7 @@ function renderAnalise() {
         <div class="kpi"><div class="rotulo">Fracos</div><div class="valor neg">${contagem.fraco}</div></div>
       </div>
     </div>
+    ${typeof cardIdeias === 'function' ? cardIdeias() : ''}
     ${lista.map(({ a, av }) => renderCartaoAtivo(a, av)).join('')}
     <p class="dica">Os critérios são referências gerais. Setores diferentes têm padrões diferentes: bancos têm P/VP e dívida próprios, empresas de crescimento têm P/L mais alto. Use a análise como ponto de partida, não como veredito.</p>`;
 }
@@ -364,6 +365,7 @@ function renderCartaoAtivo(a, av) {
   return `<div class="card">
     <h3 style="margin-top:0">${esc(a.nome)}
       <span class="tag manter">${{ fii: 'FII', etf: 'ETF', acao: 'Ação' }[av.tipo]}</span>
+      ${typeof tagsEstilo === 'function' ? tagsEstilo(a) : ''}
       ${av.nivel ? `<span class="tag ${TAG_NIVEL[av.nivel]}">${ROTULO_NIVEL[av.nivel]} · ${f1(av.nota)}/10</span>` : '<span class="tag avaliar">Preencha ao menos 2 indicadores</span>'}
     </h3>
     <p class="dica" style="margin-top:0">${info?.nome ? `${esc(info.nome)} · ` : ''}${pct(peso)} da carteira${f.setor ? ` · Setor: ${esc(f.setor)}` : ''}${f.atualizadoEm ? ` · Dados de ${new Date(f.atualizadoEm).toLocaleDateString('pt-BR')}` : ''}</p>

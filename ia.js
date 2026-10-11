@@ -40,6 +40,7 @@ function dadosParaIA(aporte) {
     proventos12m: r2(prov12),
     aporteDoMes: aporte || null,
     notaAderencia: dg.nota,
+    exposicaoAcoes: (() => { const e = exposicaoAcoes(); return { dividendosPct: r2(e.dividendos), crescimentoPct: r2(e.crescimento), mistoPct: r2(e.misto), estataisPct: r2(e.estatais), plMedioCrescimento: r2(e.plMedioCrescimento) }; })(),
     alocacao: CLASSES.map((c) => ({
       classe: c.nome,
       atualPct: r2(total ? (porClasse[c.id] / total) * 100 : 0),
@@ -70,6 +71,8 @@ function dadosParaIA(aporte) {
         indicadores: Object.fromEntries(['pl', 'pvp', 'dy', 'roe', 'margem', 'divPl', 'cresc', 'vacancia', 'nAtivos', 'taxa', 'paises']
           .filter((k) => Number.isFinite(f[k])).map((k) => [k, r2(f[k])])),
         setor: f.setor || undefined,
+        estilo: tipoAtivo(a) === 'acao' ? estiloDe(f) : undefined,
+        estatal: tipoAtivo(a) === 'acao' ? ehEstatal(a.nome) : undefined,
         medianaSetor: st ? { pl: st.pl, pvp: st.pvp, roe: st.roe, margem: st.margem } : undefined,
         precoAtual: r2(preco(a)),
         precoTetoGraham: v?.graham ? r2(v.graham) : undefined,
@@ -88,6 +91,7 @@ Três a cinco frases: como a carteira está, o principal ponto forte e o princip
 ## Pontos fortes
 ## Riscos e pontos de atenção
 Inclua concentração, valuation, adequação ao cenário (juros, inflação, câmbio, eleições, EUA) e ao perfil.
+Avalie também o equilíbrio entre ações de dividendos e de crescimento e a fatia de estatais, considerando o ciclo de juros e a eleição.
 ## O que fazer nos próximos aportes
 Concreto e priorizado. Se houver aporteDoMes, diga como dividi-lo em reais.
 ## Ativos para observar
