@@ -28,14 +28,17 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add dados/mercado.json
-          if git diff --cached --quiet; then
-            echo "Sem mudanças"
-          else
-            git commit -m "Atualiza cotações e indicadores"
-            # Outra alteração pode ter chegado durante a execução: integra e tenta de novo
-            for i in 1 2 3; do
-              git pull --rebase origin "$GITHUB_REF_NAME" && git push && break
-              sleep 5
-            done
-          fi
+          cp dados/mercado.json "$RUNNER_TEMP/mercado.json"
+          # Parte sempre da versão mais nova do branch e grava só o arquivo de dados (evita conflitos)
+          for i in 1 2 3; do
+            git fetch -q origin "$GITHUB_REF_NAME"
+            git reset -q --hard "origin/$GITHUB_REF_NAME"
+            cp "$RUNNER_TEMP/mercado.json" dados/mercado.json
+            git add dados/mercado.json
+            if git diff --cached --quiet; then echo "Sem mudanças"; exit 0; fi
+            git commit -q -m "Atualiza cotações e indicadores"
+            git push -q origin "HEAD:$GITHUB_REF_NAME" && exit 0
+            sleep 5
+          done
+          echo "Não foi possível salvar os dados" >&2
+          exit 1
