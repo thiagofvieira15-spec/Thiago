@@ -280,12 +280,13 @@ def setores(acoes_dados):
     """Associa cada ação ao seu setor (Fundamentus) e calcula as medianas de cada setor."""
     nomes, membros = {}, {}
     vazios = 0
-    for n in range(1, 61):
+    # A numeração de setores do Fundamentus tem lacunas: percorre tudo e só para após muitas vazias seguidas
+    for n in range(1, 101):
         try:
             cab, linhas = tabela(f"https://www.fundamentus.com.br/resultado.php?setor={n}")
         except Exception:
             vazios += 1
-            if vazios >= 8:
+            if vazios >= 25:
                 break
             continue
         tickers = [l[0].upper() for l in linhas if l and l[0].upper() in acoes_dados]
