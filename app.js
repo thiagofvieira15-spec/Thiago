@@ -78,9 +78,20 @@ const PERGUNTAS = [
     ['Preservar o patrimônio', 0], ['Gerar renda complementar', 1], ['Crescimento moderado', 2], ['Máximo crescimento no longo prazo', 3]] },
   { id: 'experiencia', texto: 'Qual sua experiência com investimentos?', opcoes: [
     ['Nenhuma', 0], ['Poupança e renda fixa', 1], ['Já investi em ações ou FIIs', 2], ['Invisto em renda variável há anos', 3]] },
-  { id: 'reserva', texto: 'Você tem reserva de emergência (6 meses de gastos)?', opcoes: [
+  { id: 'renda', texto: 'Qual sua situação de trabalho?', opcoes: [
+    ['Sem renda fixa no momento', 0], ['Autônomo ou empresário (renda variável)', 1], ['CLT (carteira assinada)', 2], ['Funcionário público (estabilidade)', 3]] },
+  { id: 'moradia', texto: 'Como são sua moradia e suas despesas fixas?', opcoes: [
+    ['Sustento a família / tenho dependentes', 0], ['Pago aluguel ou financiamento', 1], ['Casa própria quitada', 2], ['Moro com os pais (despesas baixas)', 3]] },
+  { id: 'reserva', texto: 'Você tem reserva de emergência?', opcoes: [
     ['Não tenho', 0], ['Tenho parte dela', 1], ['Sim, completa', 3]] },
 ];
+
+// Meses de gastos recomendados para a reserva, conforme a estabilidade da renda e as despesas
+function mesesReserva(r = estado.respostas) {
+  const base = { 0: 12, 1: 12, 2: 6, 3: 3 }[r.renda] ?? 6;
+  // Morando com os pais e com carteira assinada, as despesas obrigatórias são baixas
+  return r.moradia === 3 && base === 6 ? 4 : r.moradia === 0 && base < 12 ? base + 3 : base;
+}
 
 const CAMPOS_CENARIO = [
   ['dataReferencia', 'Data de referência', 'date'],
@@ -542,8 +553,10 @@ $('#form-perfil').addEventListener('submit', (e) => {
     if (!marcada) { alert('Responda todas as perguntas.'); return; }
     respostas[p.id] = Number(marcada.value);
   }
-  const pontos = PERGUNTAS.reduce((s, p) => s + p.opcoes[respostas[p.id]][1], 0);
-  let perfil = pontos <= 7 ? 'conservador' : pontos <= 12 ? 'moderado' : 'arrojado';
+  // O perfil vem da disposição a correr risco; estabilidade e despesas medem a capacidade (mostrada à parte)
+  const pontos = ['idade', 'horizonte', 'queda', 'objetivo', 'experiencia']
+    .reduce((s, id) => s + PERGUNTAS.find((p) => p.id === id).opcoes[respostas[id]][1], 0);
+  let perfil = pontos <= 6 ? 'conservador' : pontos <= 10 ? 'moderado' : 'arrojado';
   // Sem reserva de emergência, limita o perfil a moderado
   if (respostas.reserva === 0 && perfil === 'arrojado') perfil = 'moderado';
   estado.respostas = respostas;
@@ -556,13 +569,44 @@ $('#form-perfil').addEventListener('submit', (e) => {
 function semReserva() { return estado.respostas.reserva === 0; }
 function reservaIncompleta() { return estado.respostas.reserva !== undefined && estado.respostas.reserva < 2; }
 
+// Capacidade de assumir risco: 'alta', 'media' ou 'baixa'
+function capacidadeRisco(r = estado.respostas) {
+  if (r.renda === undefined || r.moradia === undefined) return null;
+  if (r.renda <= 1 || r.moradia === 0 || r.reserva === 0) return 'baixa';
+  if (r.renda >= 2 && r.moradia >= 2 && r.reserva === 2) return 'alta';
+  return 'media';
+}
+
+const PROXIMO_PERFIL = { conservador: 'moderado', moderado: 'arrojado' };
+
+function textoSituacao() {
+  const r = estado.respostas;
+  if (r.renda === undefined || r.moradia === undefined) return '';
+  const pontos = [];
+  if (r.renda === 3) pontos.push('A estabilidade do serviço público dá segurança à sua renda. Uma queda na bolsa não ameaça seu sustento, o que aumenta sua capacidade de assumir risco no longo prazo.');
+  else if (r.renda === 2) pontos.push('Renda de carteira assinada é relativamente estável, mas sujeita a demissão. A reserva de emergência é sua proteção.');
+  else pontos.push('Com renda variável ou incerta, a reserva precisa ser maior e a carteira deve ter boa liquidez.');
+  if (r.moradia === 3) pontos.push('Morando com os pais, suas despesas fixas são baixas: é a melhor fase para poupar uma parte grande da renda e deixar os juros compostos trabalharem.');
+  else if (r.moradia === 0) pontos.push('Com dependentes, priorize proteção (reserva maior e seguro de vida) antes de aumentar o risco.');
+  pontos.push(`Reserva de emergência recomendada para você: <strong>${mesesReserva()} meses de gastos</strong>.`);
+  const cap = capacidadeRisco();
+  const prox = PROXIMO_PERFIL[estado.perfil];
+  if (cap === 'alta' && prox) {
+    pontos.push(`Sua <strong>capacidade</strong> de assumir risco é alta, maior que sua disposição atual. Se quiser buscar mais retorno no longo prazo, você pode usar a alocação do perfil ${PERFIS[prox].nome}. <button class="btn sec mini" type="button" id="subir-perfil" data-perfil="${prox}">Usar alocação ${PERFIS[prox].nome}</button>`);
+  } else if (cap === 'baixa' && estado.perfil === 'arrojado') {
+    pontos.push('Sua disposição é arrojada, mas sua situação financeira pede cautela. Considere a alocação Moderada até ter renda estável e reserva completa.');
+  }
+  return `<div class="sinal"><div class="titulo">Sua situação</div><ul class="limpa motivo">${pontos.map((t) => `<li>${t}</li>`).join('')}</ul></div>`;
+}
+
 function renderPerfil() {
   if (estado.perfil) {
     const p = PERFIS[estado.perfil];
     $('#resultado-perfil').innerHTML = `
       <div class="perfil-badge">${p.nome}</div>
       <p>${p.desc}</p>
-      ${semReserva() ? '<div class="alerta">Você ainda não tem reserva de emergência. Antes de investir em renda variável, monte uma reserva de 6 meses de gastos em renda fixa pós-fixada com liquidez diária.</div>' : ''}
+      ${textoSituacao()}
+      ${semReserva() ? `<div class="alerta">Você ainda não tem reserva de emergência. Antes de investir em renda variável, monte uma reserva de ${mesesReserva()} meses de gastos em renda fixa pós-fixada com liquidez diária.</div>` : ''}
       <p><a href="#" data-ir="diagnostico">Ver diagnóstico da carteira →</a></p>`;
   } else {
     $('#resultado-perfil').innerHTML = '';
@@ -575,6 +619,15 @@ function renderPerfil() {
     </label>`).join('');
   atualizarSoma();
 }
+
+$('#resultado-perfil').addEventListener('click', (e) => {
+  const b = e.target.closest('#subir-perfil');
+  if (!b) return;
+  estado.perfil = b.dataset.perfil;
+  estado.alvo = { ...PERFIS[estado.perfil].alvo };
+  salvar();
+  renderPerfil();
+});
 
 $('#form-alvo').addEventListener('input', (e) => {
   const c = e.target.dataset.classe;
@@ -775,7 +828,7 @@ function diagnosticar(tol = 5) {
     .sort((x, y) => x.l.desvio - y.l.desvio);
 
   const alertas = [];
-  if (semReserva()) alertas.push('Você não tem reserva de emergência. Antes de qualquer outro movimento, acumule 6 meses de gastos em Tesouro Selic ou CDB com liquidez diária.');
+  if (semReserva()) alertas.push(`Você não tem reserva de emergência. Antes de qualquer outro movimento, acumule ${mesesReserva()} meses de gastos em Tesouro Selic ou CDB com liquidez diária.`);
   const nAcoes = estado.ativos.filter((a) => a.classe === 'acoes').length;
   const temEtf = estado.ativos.some((a) => a.classe === 'acoes' && /11$/.test(a.nome));
   if (nAcoes > 0 && nAcoes < 5 && !temEtf) alertas.push(`Só ${nAcoes} ação(ões) na carteira. Diversifique em 5 a 10 empresas de setores diferentes ou use um ETF.`);

@@ -9,7 +9,7 @@ Site estático, sem dependências. Avalia sua carteira de investimentos de acord
 - **Plano de ação**: recebe o valor do aporte do mês e, opcionalmente, permite vendas para rebalancear. Indica quanto vender de cada ativo, com uma estimativa de IR, e onde comprar. A reserva de emergência informada nunca entra nas vendas.
 - **Cenário**: indicadores (Selic, IPCA, juro real, dólar, PIB, Fed) e os sinais que inclinam a alocação. Os valores podem ser editados, e há uma tentativa de busca automática na API do Banco Central.
 - **Carteira**: cadastro de ativos, importação colando a tabela do Investidor10 (ou de qualquer planilha/CSV) e backup em JSON.
-- **Perfil**: questionário que define o perfil e a alocação-base.
+- **Perfil**: questionário que define o perfil e a alocação-base. Considera também a situação de trabalho (ex.: funcionário público) e a moradia (ex.: mora com os pais) para medir a capacidade de assumir risco e o tamanho da reserva de emergência.
 
 ## Como as recomendações são calculadas
 
