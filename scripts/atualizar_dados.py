@@ -321,24 +321,45 @@ def setores(acoes_dados):
     return out
 
 
+def etf_eua_nasdaq(t):
+    req = urllib.request.Request(f"https://api.nasdaq.com/api/quote/{t}/info?assetclass=etf", headers={
+        "User-Agent": UA, "Accept": "application/json, text/plain, */*",
+        "Origin": "https://www.nasdaq.com", "Referer": "https://www.nasdaq.com/"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        d = json.loads(r.read().decode("utf-8"))
+    pd = (d.get("data") or {}).get("primaryData") or {}
+    preco = float(str(pd["lastSalePrice"]).replace("$", "").replace(",", ""))
+    item = {"precoUSD": round(preco, 4)}
+    var = str(pd.get("percentageChange") or "").replace("%", "").replace("+", "")
+    if var:
+        item["varDia"] = round(float(var), 2)
+    return item
+
+
+def etf_eua_stooq(t):
+    csv = baixar(f"https://stooq.com/q/l/?s={t.lower()}.us&f=sd2t2ohlc&h&e=csv").strip().splitlines()
+    cab, val = csv[0].lower().split(","), csv[1].split(",")
+    return {"precoUSD": round(float(val[cab.index("close")]), 4)}
+
+
 def etfs_eua():
-    """Cotação em dólar de ETFs americanos (Stooq, CSV público)."""
+    """Cotação em dólar de ETFs americanos (Nasdaq; Stooq como alternativa)."""
     js = (RAIZ / "fundamentos.js").read_text(encoding="utf-8")
     bloco = re.search(r"const ETFS_EUA = new Set\(\[(.*?)\]\)", js, re.S).group(1)
     out = {}
-    for t in re.findall(r"'([A-Z]+)'", bloco):
-        try:
-            csv = baixar(f"https://stooq.com/q/l/?s={t.lower()}.us&f=sd2t2ohlc&h&e=csv").strip().splitlines()
-            cab, val = csv[0].lower().split(","), csv[1].split(",")
-            preco = float(val[cab.index("close")])
-            abertura = float(val[cab.index("open")])
-            item = {"precoUSD": round(preco, 4)}
-            if abertura:
-                item["varDia"] = round((preco / abertura - 1) * 100, 2)
-            out[t] = item
-        except Exception as e:
-            print(f"aviso: stooq {t}: {e}", file=sys.stderr)
-        time.sleep(0.3)
+    for fonte in (etf_eua_nasdaq, etf_eua_stooq):
+        erros = 0
+        for t in re.findall(r"'([A-Z]+)'", bloco):
+            if t in out:
+                continue
+            try:
+                out[t] = fonte(t)
+            except Exception as e:
+                erros += 1
+                print(f"aviso: {fonte.__name__} {t}: {e}", file=sys.stderr)
+                if erros >= 5 and not out:
+                    break
+            time.sleep(0.3)
     return out
 
 
