@@ -1154,6 +1154,8 @@ function renderTudo() {
   renderCenario();
   renderDiagnostico();
   renderAnalise();
+  if (typeof renderIA === 'function') renderIA();
+  if (typeof renderEvolucao === 'function') renderEvolucao();
   $('#resultado-plano').innerHTML = '';
 }
 
