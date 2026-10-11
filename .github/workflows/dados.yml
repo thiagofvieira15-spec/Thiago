@@ -33,5 +33,9 @@ jobs:
             echo "Sem mudanças"
           else
             git commit -m "Atualiza cotações e indicadores"
-            git push
+            # Outra alteração pode ter chegado durante a execução: integra e tenta de novo
+            for i in 1 2 3; do
+              git pull --rebase origin "$GITHUB_REF_NAME" && git push && break
+              sleep 5
+            done
           fi
