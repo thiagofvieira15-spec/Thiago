@@ -21,7 +21,7 @@ const CENARIO_PADRAO = {
   // Global
   fedFunds: 4.0,             // teto da banda, %
   tendenciaFed: 'alta',      // 'corte' | 'estavel' | 'alta'
-  inflacaoEUA: 3.4,          // núcleo do PCE projetado, %
+  inflacaoEUA: 3.4,          // inflação (núcleo) em 12 meses, %
   riscoGeopolitico: true,
 
   resumo: [

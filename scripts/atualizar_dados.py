@@ -446,18 +446,25 @@ def inflacao_bls():
     """Núcleo do CPI dos EUA em 12 meses (API pública v1 do BLS, sem chave)."""
     d = json.loads(baixar_rapido("https://api.bls.gov/publicAPI/v1/timeseries/data/CUUR0000SA0L1E"))
     dados = d["Results"]["series"][0]["data"]  # mais recente primeiro
-    serie = {(int(x["year"]), x["period"]): float(x["value"]) for x in dados if x["period"].startswith("M") and x["period"] != "M13"}
-    ano, per = max(serie)
-    anterior = serie.get((ano - 1, per))
-    if not anterior:
-        raise RuntimeError("BLS sem mês comparável")
-    return (serie[(ano, per)] / anterior - 1) * 100
+    serie = {}
+    for x in dados:
+        if not x["period"].startswith("M") or x["period"] == "M13":
+            continue
+        try:
+            serie[(int(x["year"]), x["period"])] = float(x["value"])
+        except ValueError:
+            pass  # meses sem dado vêm como "-"
+    # Mês mais recente que tenha o mesmo mês do ano anterior para comparar
+    for ano, per in sorted(serie, reverse=True):
+        if (ano - 1, per) in serie:
+            return (serie[(ano, per)] / serie[(ano - 1, per)] - 1) * 100
+    raise RuntimeError("BLS sem mês comparável")
 
 
 def macro_eua(out):
     """Juros (teto da meta dos Fed Funds), tendência e inflação dos EUA, com fontes alternativas."""
     fed = None
-    for fonte in (lambda: fred("DFEDTARU"), fed_funds_nyfed):
+    for fonte in (fed_funds_nyfed, lambda: fred("DFEDTARU")):
         try:
             fed = fonte()
             break
@@ -470,16 +477,17 @@ def macro_eua(out):
         if antes:
             dif = atual - antes[-1]
             out["tendenciaFed"] = "alta" if dif > 0.1 else "corte" if dif < -0.1 else "estavel"
+    # Inflação: núcleo do CPI (BLS) primeiro; núcleo do PCE (FRED) como alternativa
     try:
-        pce = fred("PCEPILFE")
-        if len(pce) >= 13:
-            out["inflacaoEUA"] = round((pce[-1][1] / pce[-13][1] - 1) * 100, 2)
+        out["inflacaoEUA"] = round(inflacao_bls(), 2)
     except Exception as e:
-        print(f"aviso: inflação EUA (PCE/FRED): {e}", file=sys.stderr)
+        print(f"aviso: inflação EUA (CPI/BLS): {e}", file=sys.stderr)
         try:
-            out["inflacaoEUA"] = round(inflacao_bls(), 2)
+            pce = fred("PCEPILFE")
+            if len(pce) >= 13:
+                out["inflacaoEUA"] = round((pce[-1][1] / pce[-13][1] - 1) * 100, 2)
         except Exception as e2:
-            print(f"aviso: inflação EUA (CPI/BLS): {e2}", file=sys.stderr)
+            print(f"aviso: inflação EUA (PCE/FRED): {e2}", file=sys.stderr)
 
 
 def macro():
