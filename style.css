@@ -150,3 +150,5 @@ details summary { cursor: pointer; }
 td.motivo { min-width: 220px; }
 ul.limpa { padding-left: 18px; margin: 6px 0; }
 ul.limpa li { margin: 4px 0; }
+.auto { color: var(--positivo); font-size: 0.6rem; vertical-align: middle; }
+[hidden] { display: none !important; }

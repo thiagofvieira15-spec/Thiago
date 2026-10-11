@@ -71,6 +71,23 @@
       <div class="resumo" id="resumo"></div>
 
       <div class="card">
+        <h2>Cotações automáticas</h2>
+        <form id="form-cotacoes" class="grade-form">
+          <label>Token da brapi.dev (gratuito)
+            <input id="token-brapi" type="password" autocomplete="off" placeholder="Cole aqui seu token">
+          </label>
+          <label class="check">
+            <input type="checkbox" id="auto-cotacoes"> Atualizar ao abrir o site
+          </label>
+          <div class="acoes-form"><button class="btn" type="submit" id="btn-cotacoes">Atualizar cotações</button></div>
+        </form>
+        <p id="status-cotacoes" class="dica"></p>
+        <p class="dica">Atualiza ações, FIIs, ETFs e BDRs negociados na B3 (ex.: PETR4, MXRF11, IVVB11, HASH11). Crie o token grátis em
+          <a href="https://brapi.dev/dashboard" target="_blank" rel="noopener">brapi.dev</a>. O plano gratuito tem 15 mil consultas por mês e atraso de cerca de 30 min.
+          O token fica salvo só neste navegador. Renda fixa e Tesouro continuam com o valor manual.</p>
+      </div>
+
+      <div class="card">
         <h2 id="form-titulo">Adicionar ativo</h2>
         <form id="form-ativo" class="grade-form">
           <input type="hidden" id="ativo-id">
@@ -104,7 +121,7 @@
             <thead>
               <tr>
                 <th>Ativo</th><th>Classe</th><th class="num">Qtd</th><th class="num">P. médio</th>
-                <th class="num">P. atual</th><th class="num">Total</th><th class="num">Resultado</th><th class="num">% carteira</th><th></th>
+                <th class="num">P. atual</th><th class="num">Dia</th><th class="num">Total</th><th class="num">Resultado</th><th class="num">% carteira</th><th></th>
               </tr>
             </thead>
             <tbody></tbody>

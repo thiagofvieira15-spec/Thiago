@@ -393,7 +393,8 @@ function renderCarteira() {
       <td>${classe(a.classe)?.curto || esc(a.classe)}</td>
       <td class="num">${num(a.qtd)}</td>
       <td class="num">${fmt(a.pm)}</td>
-      <td class="num">${fmt(a.pa)}</td>
+      <td class="num" title="${a.cotadoEm ? 'Cotação de ' + new Date(a.cotadoEm).toLocaleString('pt-BR') : 'Preço informado manualmente'}">${fmt(a.pa)}${a.cotadoEm ? ' <span class="auto">●</span>' : ''}</td>
+      <td class="num ${a.varDia > 0 ? 'pos' : a.varDia < 0 ? 'neg' : ''}">${Number.isFinite(a.varDia) && a.cotadoEm ? `${a.varDia > 0 ? '+' : ''}${pct(a.varDia, 2)}` : '—'}</td>
       <td class="num">${fmt(v)}</td>
       <td class="num ${r >= 0 ? 'pos' : 'neg'}">${fmt(r)} (${pct(rp)})</td>
       <td class="num">${pct(total ? (v / total) * 100 : 0)}</td>
@@ -408,7 +409,9 @@ function renderCarteira() {
 }
 
 $('#exportar').addEventListener('click', () => {
-  const blob = new Blob([JSON.stringify(estado, null, 2)], { type: 'application/json' });
+  // O token da API não vai para o backup
+  const { tokenBrapi, ...dados } = estado;
+  const blob = new Blob([JSON.stringify(dados, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `carteira-${new Date().toISOString().slice(0, 10)}.json`;
@@ -438,6 +441,82 @@ $('#limpar').addEventListener('click', () => {
   estado = estadoInicial();
   salvar();
   renderTudo();
+});
+
+// ---------- Cotações (brapi.dev) ----------
+
+const TICKER_B3 = /^[A-Z]{4}\d{1,2}F?$/;
+
+function tickerCotavel(a) {
+  return !classe(a.classe)?.rendaFixa && TICKER_B3.test(a.nome);
+}
+
+async function cotar(ticker, token) {
+  const url = `https://brapi.dev/api/quote/${encodeURIComponent(ticker.replace(/F$/, ''))}${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+  const r = await fetch(url);
+  if (!r.ok) {
+    const erro = new Error(`HTTP ${r.status}`);
+    erro.status = r.status;
+    throw erro;
+  }
+  const dados = await r.json();
+  const q = dados.results && dados.results[0];
+  if (!q || !Number.isFinite(q.regularMarketPrice)) throw new Error('sem preço');
+  return { preco: q.regularMarketPrice, varDia: q.regularMarketChangePercent };
+}
+
+async function atualizarCotacoes() {
+  const st = $('#status-cotacoes');
+  const token = estado.tokenBrapi || '';
+  const alvos = estado.ativos.filter(tickerCotavel);
+  if (!alvos.length) {
+    st.textContent = 'Nenhum ativo com ticker da B3 para atualizar.';
+    return;
+  }
+  $('#btn-cotacoes').disabled = true;
+  const ok = [], falhas = [];
+  let semToken = false;
+  // Plano gratuito: 1 ativo por requisição; faz 3 por vez
+  const fila = [...alvos];
+  async function trabalhador() {
+    while (fila.length) {
+      const a = fila.shift();
+      st.textContent = `Atualizando cotações... (${ok.length + falhas.length + 1}/${alvos.length})`;
+      try {
+        const q = await cotar(a.nome, token);
+        const atual = estado.ativos.find((x) => x.id === a.id);
+        if (atual) Object.assign(atual, { pa: q.preco, varDia: q.varDia, cotadoEm: Date.now() });
+        ok.push(a.nome);
+      } catch (err) {
+        if (err.status === 401 || err.status === 403) semToken = true;
+        falhas.push(a.nome);
+      }
+    }
+  }
+  await Promise.all([trabalhador(), trabalhador(), trabalhador()]);
+  salvar();
+  renderCarteira();
+  $('#btn-cotacoes').disabled = false;
+  let msg = `${ok.length} de ${alvos.length} cotações atualizadas às ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}.`;
+  if (falhas.length) msg += ` Sem cotação: ${falhas.join(', ')}.`;
+  if (semToken) msg += token ? ' Token inválido ou sem permissão para esses ativos.' : ' É necessário um token da brapi.dev para esses ativos.';
+  else if (falhas.length && !ok.length) msg += ' Verifique sua conexão ou se os tickers estão corretos.';
+  st.textContent = msg;
+}
+
+$('#form-cotacoes').addEventListener('submit', (e) => {
+  e.preventDefault();
+  atualizarCotacoes();
+});
+
+$('#token-brapi').addEventListener('change', (e) => {
+  estado.tokenBrapi = e.target.value.trim();
+  salvar();
+});
+
+$('#auto-cotacoes').addEventListener('change', (e) => {
+  estado.autoCotacoes = e.target.checked;
+  salvar();
 });
 
 // ---------- Perfil ----------
@@ -971,6 +1050,8 @@ $('#form-plano').addEventListener('submit', (e) => {
 // ---------- Início ----------
 
 function renderTudo() {
+  $('#token-brapi').value = estado.tokenBrapi || '';
+  $('#auto-cotacoes').checked = !!estado.autoCotacoes;
   $('#reserva-valor').value = estado.reservaValor || '';
   renderCarteira();
   renderPerguntas();
@@ -981,3 +1062,4 @@ function renderTudo() {
 }
 
 renderTudo();
+if (estado.autoCotacoes && estado.ativos.some(tickerCotavel)) atualizarCotacoes();
