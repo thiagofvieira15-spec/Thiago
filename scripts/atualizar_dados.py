@@ -268,6 +268,27 @@ def etfs():
     return out
 
 
+def etfs_eua():
+    """Cotação em dólar de ETFs americanos (Stooq, CSV público)."""
+    js = (RAIZ / "fundamentos.js").read_text(encoding="utf-8")
+    bloco = re.search(r"const ETFS_EUA = new Set\(\[(.*?)\]\)", js, re.S).group(1)
+    out = {}
+    for t in re.findall(r"'([A-Z]+)'", bloco):
+        try:
+            csv = baixar(f"https://stooq.com/q/l/?s={t.lower()}.us&f=sd2t2ohlc&h&e=csv").strip().splitlines()
+            cab, val = csv[0].lower().split(","), csv[1].split(",")
+            preco = float(val[cab.index("close")])
+            abertura = float(val[cab.index("open")])
+            item = {"precoUSD": round(preco, 4)}
+            if abertura:
+                item["varDia"] = round((preco / abertura - 1) * 100, 2)
+            out[t] = item
+        except Exception as e:
+            print(f"aviso: stooq {t}: {e}", file=sys.stderr)
+        time.sleep(0.3)
+    return out
+
+
 def sgs(codigo):
     """Último valor de uma série do Sistema Gerenciador de Séries do Banco Central."""
     d = json.loads(baixar(f"https://api.bcb.gov.br/dados/serie/bcdata.sgs.{codigo}/dados/ultimos/1?formato=json"))
@@ -342,7 +363,8 @@ def main():
     if SAIDA.exists():
         anterior = json.loads(SAIDA.read_text(encoding="utf-8"))
     resultado = {"atualizadoEm": datetime.now(timezone.utc).isoformat(timespec="seconds"), "fontes": {}}
-    for nome, fn, fonte in (("acoes", acoes, "Fundamentus"), ("fiis", fiis, "Fundamentus"), ("etfs", etfs, "Yahoo Finance")):
+    for nome, fn, fonte in (("acoes", acoes, "Fundamentus"), ("fiis", fiis, "Fundamentus"), ("etfs", etfs, "Yahoo Finance"),
+                            ("etfsEUA", etfs_eua, "Stooq")):
         try:
             resultado[nome] = fn()
             resultado["fontes"][nome] = fonte
@@ -357,7 +379,7 @@ def main():
     except Exception as e:
         print(f"ERRO em macro: {e}", file=sys.stderr)
         resultado["macro"] = anterior.get("macro", {})
-    if not any(resultado[k] for k in ("acoes", "fiis", "etfs")):
+    if not any(resultado[k] for k in ("acoes", "fiis", "etfs", "etfsEUA")):
         sys.exit("nenhuma fonte respondeu")
     SAIDA.parent.mkdir(exist_ok=True)
     SAIDA.write_text(json.dumps(resultado, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")

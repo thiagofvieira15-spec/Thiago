@@ -79,7 +79,46 @@ const INDICADORES = {
       : v >= 3 ? [0, `${v} ativos no portfólio: diversificação moderada.`]
       : [-1, `Só ${v} ativo(s) no portfólio: risco concentrado em poucos inquilinos ou devedores.`]],
   ],
+  etf: [
+    ['taxa', 'Taxa de administração', '% a.a.', (v) => v <= 0.2 ? [1, `Taxa de ${f2(v)}% ao ano: muito barata. Quase todo o retorno do índice fica com você.`]
+      : v <= 0.6 ? [0, `Taxa de ${f2(v)}% ao ano: razoável.`]
+      : [-1, `Taxa de ${f2(v)}% ao ano: cara para um fundo de índice. Compare com alternativas.`]],
+    ['nAtivos', 'Nº de ativos no fundo', '', (v) => v >= 1000 ? [1, `${Number(v).toLocaleString('pt-BR')} ativos: diversificação muito ampla.`]
+      : v >= 50 ? [0, `${Number(v).toLocaleString('pt-BR')} ativos: diversificação razoável.`]
+      : [-1, `Só ${v} ativos: fundo concentrado.`]],
+    ['paises', 'Nº de países', '', (v) => v >= 20 ? [1, `Investe em ${v} países: diversificação global, sem depender de uma só economia.`]
+      : v >= 2 ? [0, `Investe em ${v} países.`]
+      : [0, 'Concentrado em um único país.']],
+    ['pl', 'P/L médio da carteira', 'x', (v) => v <= 15 ? [1, `P/L médio de ${f1(v)}: ações baratas em relação ao lucro.`]
+      : v <= 22 ? [0, `P/L médio de ${f1(v)}: preço em linha com a média histórica.`]
+      : [-1, `P/L médio de ${f1(v)}: ações caras; retorno futuro tende a ser menor.`]],
+    ['dy', 'Dividend yield', '%', (v) => [0, `Dividend yield de ${f1(v)}% ao ano. Em ETF de crescimento global, o retorno vem principalmente da valorização.`]],
+  ],
 };
+
+// Dados de referência de ETFs (fonte: sites dos gestores; valores aproximados — confira e corrija se necessário)
+const ETF_INFO = {
+  VT: { taxa: 0.06, nAtivos: 9800, paises: 49, pl: 20, dy: 1.9, nome: 'Vanguard Total World Stock', eua: true },
+  VTI: { taxa: 0.03, nAtivos: 3600, paises: 1, pl: 25, dy: 1.2, eua: true },
+  VOO: { taxa: 0.03, nAtivos: 500, paises: 1, pl: 25, dy: 1.2, eua: true },
+  IVV: { taxa: 0.03, nAtivos: 500, paises: 1, pl: 25, dy: 1.2, eua: true },
+  SPY: { taxa: 0.09, nAtivos: 500, paises: 1, pl: 25, dy: 1.2, eua: true },
+  VXUS: { taxa: 0.05, nAtivos: 8500, paises: 48, pl: 15, dy: 2.9, eua: true },
+  ACWI: { taxa: 0.32, nAtivos: 2300, paises: 47, pl: 20, dy: 1.7, eua: true },
+  QQQ: { taxa: 0.20, nAtivos: 100, paises: 1, pl: 33, dy: 0.6, eua: true },
+  SCHD: { taxa: 0.06, nAtivos: 100, paises: 1, pl: 17, dy: 3.6, eua: true },
+  BOVA11: { taxa: 0.10, nAtivos: 85, paises: 1 },
+  IVVB11: { taxa: 0.23, nAtivos: 500, paises: 1 },
+  SMAL11: { taxa: 0.50, paises: 1 },
+  DIVO11: { taxa: 0.50, paises: 1 },
+  HASH11: { taxa: 0.70 },
+};
+
+// Indicadores efetivos: para ETFs, os dados de referência completam o que o usuário não preencheu
+function fundAtivo(a) {
+  if (tipoAtivo(a) !== 'etf') return a.fund || {};
+  return Object.assign({}, ETF_INFO[a.nome.replace(/F$/, '')] || {}, a.fund || {});
+}
 
 const f1 = (v) => Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 1 });
 const f2 = (v) => Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -88,7 +127,7 @@ function avaliarFundamentos(a) {
   const tipo = tipoAtivo(a);
   const defs = INDICADORES[tipo];
   if (!defs) return { tipo, nivel: null, pontos: [], preenchidos: 0 };
-  const f = a.fund || {};
+  const f = fundAtivo(a);
   const pontos = [];
   for (const [k, , , fn] of defs) {
     if (Number.isFinite(f[k])) {
@@ -227,21 +266,16 @@ function renderAnalise() {
 
 function renderCartaoAtivo(a, av) {
   const peso = totais().total ? (valorAtivo(a) / totais().total) * 100 : 0;
-  if (av.tipo === 'etf') {
-    return `<div class="card">
-      <h3 style="margin-top:0">${esc(a.nome)} <span class="tag manter">ETF</span></h3>
-      <p class="motivo">Fundo de índice: já é diversificado e não tem análise de fundamentos própria. Avalie a taxa de administração e se o índice combina com sua estratégia. ${pct(peso)} da carteira.</p>
-    </div>`;
-  }
-  const f = a.fund || {};
+  const f = fundAtivo(a);
+  const info = ETF_INFO[a.nome.replace(/F$/, '')];
   const manuais = f.manuais || [];
   const defs = INDICADORES[av.tipo];
   return `<div class="card">
     <h3 style="margin-top:0">${esc(a.nome)}
-      <span class="tag manter">${av.tipo === 'fii' ? 'FII' : 'Ação'}</span>
+      <span class="tag manter">${{ fii: 'FII', etf: 'ETF', acao: 'Ação' }[av.tipo]}</span>
       ${av.nivel ? `<span class="tag ${TAG_NIVEL[av.nivel]}">${ROTULO_NIVEL[av.nivel]} · ${f1(av.nota)}/10</span>` : '<span class="tag avaliar">Preencha ao menos 2 indicadores</span>'}
     </h3>
-    <p class="dica" style="margin-top:0">${pct(peso)} da carteira${f.setor ? ` · Setor: ${esc(f.setor)}` : ''}${f.atualizadoEm ? ` · Dados de ${new Date(f.atualizadoEm).toLocaleDateString('pt-BR')}` : ''}</p>
+    <p class="dica" style="margin-top:0">${info?.nome ? `${esc(info.nome)} · ` : ''}${pct(peso)} da carteira${f.setor ? ` · Setor: ${esc(f.setor)}` : ''}${f.atualizadoEm ? ` · Dados de ${new Date(f.atualizadoEm).toLocaleDateString('pt-BR')}` : ''}</p>
     <form class="grade-form form-fund" data-id="${esc(a.id)}">
       ${defs.map(([k, rot, un]) => `<label>${rot}${un ? ` (${un})` : ''}${manuais.includes(k) ? ' ✎' : ''}
         <input type="number" step="any" data-k="${k}" value="${Number.isFinite(f[k]) ? f[k] : ''}" placeholder="—">
@@ -249,6 +283,8 @@ function renderCartaoAtivo(a, av) {
       ${av.tipo === 'acao' ? `<label class="check"><input type="checkbox" data-k="banco" ${f.banco ? 'checked' : ''}> É banco ou seguradora</label>` : ''}
     </form>
     ${av.pontos.length ? `<ul class="limpa pontos">${av.pontos.map((p) => `<li class="${p.nivel > 0 ? 'pos' : p.nivel < 0 ? 'neg' : ''}">${p.nivel > 0 ? '▲' : p.nivel < 0 ? '▼' : '●'} <span>${esc(p.texto)}</span></li>`).join('')}</ul>` : ''}
+    ${av.tipo === 'etf' && info?.eua ? `<div class="alerta">ETF domiciliado nos EUA: 30% de imposto retido na fonte sobre os dividendos; no Brasil, 15% de IR sobre o ganho na declaração anual (Lei 14.754/2023). Acima de US$ 60 mil investidos nos EUA, há risco de imposto sobre herança americano: para patrimônio grande, avalie ETFs equivalentes domiciliados na Irlanda (ex.: VWRA).</div>` : ''}
+    ${av.tipo === 'etf' ? '<p class="dica">Dados de referência dos gestores (aproximados). Confira no site do fundo e corrija se necessário.</p>' : ''}
     ${av.tipo === 'fii' ? '<p class="dica">P/VP, vacância e número de ativos estão no relatório gerencial do fundo ou em sites como Status Invest, Funds Explorer e Investidor10.</p>' : ''}
   </div>`;
 }

@@ -12,7 +12,7 @@ const CENARIO_PADRAO = {
   ipca12m: 4.58,             // % acumulado em 12 meses
   ipcaFocusAno: 5.01,        // mediana Focus para o ano corrente
   tetoMetaIpca: 4.5,         // teto da meta de inflação
-  taxaIpcaLongo: 7.5,        // juro real aproximado do Tesouro IPCA+ longo (% a.a.)
+  taxaIpcaLongo: 6.48,       // juro real aproximado do Tesouro IPCA+ longo (% a.a.)
   pibFocusAno: 1.85,         // %
   dolar: 4.99,               // R$
   dolarFocusFimAno: 5.2,     // R$
@@ -27,7 +27,7 @@ const CENARIO_PADRAO = {
   resumo: [
     'Selic em 13,75% com o Copom iniciando cortes. O mercado (Focus) espera 13,50% no fim de 2026 e 12% em 2027.',
     'IPCA de 4,58% em 12 meses (set/26), acima do teto da meta (4,5%). O Focus projeta 5,01% para 2026.',
-    'Juro real muito alto: Tesouro IPCA+ pagando cerca de 7% a 8% acima da inflação, níveis raros historicamente.',
+    'Juro real muito alto: Tesouro IPCA+ longo pagando cerca de 6,5% acima da inflação, nível historicamente elevado.',
     'Ibovespa em recorde (~209 mil pontos) após rali eleitoral, com dólar abaixo de R$ 5. O período eleitoral tende a trazer volatilidade.',
     'EUA: o Fed voltou a subir juros (3,75%–4,00% em set/26) e sinaliza mais uma alta. A inflação segue elevada.',
     'Tensões no Oriente Médio mantêm o petróleo pressionado, o que é risco para a inflação global.',

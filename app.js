@@ -203,7 +203,7 @@ function sinaisCenario(cx = cenario()) {
     });
   }
 
-  if (cx.taxaIpcaLongo >= 6.5) {
+  if (cx.taxaIpcaLongo >= 6) {
     sinais.push({
       titulo: `Tesouro IPCA+ pagando ~${pct(cx.taxaIpcaLongo)} acima da inflação`,
       texto: 'Taxas reais raramente ficam neste nível. É uma oportunidade de travar juro real alto por vários anos, levando o título até o vencimento.',
