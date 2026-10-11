@@ -160,7 +160,11 @@ const preco = (a) => a.pa || a.pm;
 const valorAtivo = (a) => a.qtd * preco(a);
 const custoAtivo = (a) => a.qtd * a.pm;
 
-function totais(ativos = estado.ativos) {
+// Ativos da carteira de investimentos (a reserva de emergência fica fora da alocação)
+const investidos = () => estado.ativos.filter((a) => !a.reserva);
+const reservas = () => estado.ativos.filter((a) => a.reserva);
+
+function totais(ativos = investidos()) {
   const porClasse = Object.fromEntries(CLASSES.map((c) => [c.id, 0]));
   let total = 0, custo = 0;
   for (const a of ativos) {
@@ -338,6 +342,7 @@ $('#form-ativo').addEventListener('submit', (e) => {
     qtd: parseFloat($('#ativo-qtd').value),
     pm,
     pa: paBruto === '' ? pm : parseFloat(paBruto),
+    reserva: $('#ativo-reserva').checked || undefined,
   };
   // Mantém os fundamentos já preenchidos ao editar
   estado.ativos = id ? estado.ativos.map((a) => (a.id === id ? { ...ativo, fund: a.fund } : a)) : [...estado.ativos, ativo];
@@ -364,6 +369,7 @@ function editar(id) {
   $('#ativo-qtd').value = a.qtd;
   $('#ativo-pm').value = a.pm;
   $('#ativo-pa').value = a.pa;
+  $('#ativo-reserva').checked = !!a.reserva;
   $('#form-titulo').textContent = `Editar ${a.nome}`;
   $('#cancelar-edicao').hidden = false;
   $('#form-ativo').scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -391,10 +397,11 @@ function renderCarteira() {
   const cls = resultado >= 0 ? 'pos' : 'neg';
 
   $('#resumo').innerHTML = `
-    <div class="kpi"><div class="rotulo">Patrimônio atual</div><div class="valor">${fmt(total)}</div></div>
+    <div class="kpi"><div class="rotulo">Patrimônio investido</div><div class="valor">${fmt(total)}</div></div>
     <div class="kpi"><div class="rotulo">Total investido</div><div class="valor">${fmt(custo)}</div></div>
     <div class="kpi"><div class="rotulo">Resultado</div><div class="valor ${cls}">${fmt(resultado)}</div></div>
-    <div class="kpi"><div class="rotulo">Rentabilidade</div><div class="valor ${cls}">${pct(rent, 2)}</div></div>`;
+    <div class="kpi"><div class="rotulo">Rentabilidade</div><div class="valor ${cls}">${pct(rent, 2)}</div></div>
+    ${reservas().length ? `<div class="kpi"><div class="rotulo">Reserva de emergência (fora da alocação)</div><div class="valor">${fmt(totais(reservas()).total)}</div></div>` : ''}`;
 
   const ativos = [...estado.ativos].sort((a, b) => valorAtivo(b) - valorAtivo(a));
   $('#tabela-ativos tbody').innerHTML = ativos.map((a) => {
@@ -402,7 +409,7 @@ function renderCarteira() {
     const r = v - custoAtivo(a);
     const rp = custoAtivo(a) > 0 ? (r / custoAtivo(a)) * 100 : 0;
     return `<tr>
-      <td><strong>${esc(a.nome)}</strong></td>
+      <td><strong>${esc(a.nome)}</strong>${a.reserva ? ' <span class="tag avaliar">Reserva</span>' : ''}</td>
       <td>${classe(a.classe)?.curto || esc(a.classe)}</td>
       <td class="num">${num(a.qtd)}</td>
       <td class="num">${fmt(a.pm)}</td>
@@ -410,7 +417,7 @@ function renderCarteira() {
       <td class="num ${a.varDia > 0 ? 'pos' : a.varDia < 0 ? 'neg' : ''}">${Number.isFinite(a.varDia) && a.cotadoEm ? `${a.varDia > 0 ? '+' : ''}${pct(a.varDia, 2)}` : '—'}</td>
       <td class="num">${fmt(v)}</td>
       <td class="num ${r >= 0 ? 'pos' : 'neg'}">${fmt(r)} (${pct(rp)})</td>
-      <td class="num">${pct(total ? (v / total) * 100 : 0)}</td>
+      <td class="num">${a.reserva ? '—' : pct(total ? (v / total) * 100 : 0)}</td>
       <td>
         <button class="btn sec mini" data-acao="editar" data-id="${esc(a.id)}">Editar</button>
         <button class="btn perigo mini" data-acao="remover" data-id="${esc(a.id)}">Remover</button>
@@ -566,7 +573,7 @@ $('#form-perfil').addEventListener('submit', (e) => {
   renderPerfil();
 });
 
-function semReserva() { return estado.respostas.reserva === 0; }
+function semReserva() { return estado.respostas.reserva === 0 && !reservas().length; }
 function reservaIncompleta() { return estado.respostas.reserva !== undefined && estado.respostas.reserva < 2; }
 
 // Capacidade de assumir risco: 'alta', 'media' ou 'baixa'
@@ -780,7 +787,7 @@ function diagnosticar(tol = 5) {
   const porId = Object.fromEntries(linhas.map((l) => [l.c.id, l]));
 
   // Recomendação por ativo
-  const acoes = estado.ativos.map((a) => {
+  const acoes = investidos().map((a) => {
     const c = classe(a.classe);
     const l = porId[a.classe];
     const peso = total ? (valorAtivo(a) / total) * 100 : 0;
@@ -824,15 +831,15 @@ function diagnosticar(tol = 5) {
   // Sugestões de inclusão: classes abaixo da meta com poucos ou nenhum ativo
   const inclusoes = linhas
     .filter((l) => l.desvio < -tol / 2 && l.meta > 0)
-    .map((l) => ({ l, qtd: estado.ativos.filter((a) => a.classe === l.c.id).length }))
+    .map((l) => ({ l, qtd: investidos().filter((a) => a.classe === l.c.id).length }))
     .sort((x, y) => x.l.desvio - y.l.desvio);
 
   const alertas = [];
   if (semReserva()) alertas.push(`Você não tem reserva de emergência. Antes de qualquer outro movimento, acumule ${mesesReserva()} meses de gastos em Tesouro Selic ou CDB com liquidez diária.`);
-  const nAcoes = estado.ativos.filter((a) => a.classe === 'acoes').length;
-  const temEtf = estado.ativos.some((a) => a.classe === 'acoes' && /11$/.test(a.nome));
+  const nAcoes = investidos().filter((a) => a.classe === 'acoes').length;
+  const temEtf = investidos().some((a) => a.classe === 'acoes' && /11$/.test(a.nome));
   if (nAcoes > 0 && nAcoes < 5 && !temEtf) alertas.push(`Só ${nAcoes} ação(ões) na carteira. Diversifique em 5 a 10 empresas de setores diferentes ou use um ETF.`);
-  const nFiis = estado.ativos.filter((a) => a.classe === 'fiis').length;
+  const nFiis = investidos().filter((a) => a.classe === 'fiis').length;
   if (nFiis > 0 && nFiis < 3) alertas.push(`Só ${nFiis} FII(s). Diversifique entre ao menos 3 fundos de segmentos distintos.`);
   const cx = cenario();
   if (cx.riscoEleitoral && porId.acoes.desvio > 0) alertas.push('Ações acima da meta em período eleitoral. Após um rali forte, considere realizar parte do lucro.');
@@ -862,7 +869,7 @@ function renderDiagnostico() {
       </ol></div>`;
     return;
   }
-  if (!estado.ativos.length) {
+  if (!investidos().length) {
     alvo.innerHTML = '<div class="card"><p>Cadastre seus investimentos na aba <a href="#" data-ir="carteira">Carteira</a> para ver o diagnóstico.</p></div>';
     return;
   }
@@ -951,7 +958,7 @@ function gerarPlano(aporte, permitirVendas, tol, reserva = 0) {
 
   if (permitirVendas && total > 0) {
     // 1) Ativos inadequados ou concentrados
-    for (const a of estado.ativos) {
+    for (const a of investidos()) {
       const c = classe(a.classe);
       if ((a.classe === 'cripto' && estado.perfil === 'conservador') || meta[a.classe] === 0) {
         addVenda(a, valorAtivo(a), 'Classe fora do seu perfil.');
@@ -964,7 +971,7 @@ function gerarPlano(aporte, permitirVendas, tol, reserva = 0) {
     }
     // 2) Classes muito acima da meta: vende o excesso, começando pelos maiores ativos
     for (const c of CLASSES) {
-      const ativos = estado.ativos.filter((a) => a.classe === c.id);
+      const ativos = investidos().filter((a) => a.classe === c.id);
       const restante = ativos.reduce((s, a) => s + valorAtivo(a) - (vendas.get(a.id)?.valor || 0), 0);
       let excesso = restante - (meta[c.id] / 100) * novoTotal;
       // A reserva de emergência (em RF pós) nunca é vendida
@@ -989,7 +996,7 @@ function gerarPlano(aporte, permitirVendas, tol, reserva = 0) {
 
   // Valor por classe após as vendas
   const apos = Object.fromEntries(CLASSES.map((c) => [c.id, 0]));
-  for (const a of estado.ativos) apos[a.classe] += valorAtivo(a) - (vendas.get(a.id)?.valor || 0);
+  for (const a of investidos()) apos[a.classe] += valorAtivo(a) - (vendas.get(a.id)?.valor || 0);
 
   const deficits = CLASSES.map((c) => ({ c, falta: Math.max(0, (meta[c.id] / 100) * novoTotal - apos[c.id]) }));
   const somaDef = deficits.reduce((s, d) => s + d.falta, 0);
@@ -1013,7 +1020,7 @@ function gerarPlano(aporte, permitirVendas, tol, reserva = 0) {
 function distribuirNaClasse(classeId, valor, vendas) {
   // Em renda fixa o que importa é o tipo de título, não igualar posições: sugere opções da classe
   if (classe(classeId).rendaFixa) return [];
-  let ativos = estado.ativos.filter((a) => a.classe === classeId && !vendas.has(a.id));
+  let ativos = investidos().filter((a) => a.classe === classeId && !vendas.has(a.id));
   // Ativos com fundamentos fracos não recebem aportes quando há alternativas na classe
   const saudaveis = ativos.filter((a) => avaliarFundamentos(a).nivel !== 'fraco');
   if (saudaveis.length) ativos = saudaveis;
@@ -1055,7 +1062,7 @@ $('#form-plano').addEventListener('submit', (e) => {
     saida.innerHTML = '<div class="card"><p>Informe um aporte ou marque "Permitir vendas" para rebalancear.</p></div>';
     return;
   }
-  if (!estado.ativos.length && aporte <= 0) {
+  if (!investidos().length && aporte <= 0) {
     saida.innerHTML = '<div class="card"><p>Cadastre seus ativos ou informe um aporte.</p></div>';
     return;
   }

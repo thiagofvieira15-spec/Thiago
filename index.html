@@ -138,12 +138,15 @@
           <label>Preço atual (R$)
             <input id="ativo-pa" type="number" step="any" min="0" placeholder="Igual ao médio se vazio">
           </label>
+          <label class="check">
+            <input type="checkbox" id="ativo-reserva"> É minha reserva de emergência
+          </label>
           <div class="acoes-form">
             <button type="submit" class="btn">Salvar</button>
             <button type="button" class="btn sec" id="cancelar-edicao" hidden>Cancelar</button>
           </div>
         </form>
-        <p class="dica">Para renda fixa, use quantidade 1: o preço médio é o valor aplicado e o preço atual é o saldo de hoje.</p>
+        <p class="dica">Para renda fixa, use quantidade 1: o preço médio é o valor aplicado e o preço atual é o saldo de hoje. Marque "reserva de emergência" no título que guarda sua reserva: ele aparece na lista, mas fica fora da alocação e nunca é sugerido para venda.</p>
       </div>
 
       <div class="card">
