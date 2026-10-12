@@ -1156,6 +1156,7 @@ function renderTudo() {
   renderAnalise();
   if (typeof renderIA === 'function') renderIA();
   if (typeof renderEvolucao === 'function') renderEvolucao();
+  if (typeof renderAcompanhamento === 'function') renderAcompanhamento();
   $('#resultado-plano').innerHTML = '';
 }
 

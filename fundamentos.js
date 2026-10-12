@@ -184,6 +184,27 @@ function pontoValuation(a) {
   return [-1, `Preço ${f1(-margem)}% acima do maior preço-teto (${fmt(teto)}). Pelos métodos de Graham e Bazin, está cara.`];
 }
 
+// Consistência dos dividendos (histórico de 5 anos baixado pelo robô do Fundamentus)
+function histDividendos(a) {
+  const h = typeof MERCADO !== 'undefined' && MERCADO?.dividendos;
+  return (h && h[a.nome.replace(/F$/, '')]) || null;
+}
+
+function pontoDividendos(a) {
+  const h = histDividendos(a);
+  if (!h) return null;
+  const dy = fundAtivo(a).dy || 0;
+  const vezes = h.pico ? `${f1(h.pico)}x` : '';
+  if (h.pico > 1.8 && dy >= 3) return [-1, `Dividendos dos últimos 12 meses são ${vezes} a média dos últimos 5 anos: provavelmente extraordinários. Não conte com esse dividend yield (${f1(dy)}%) daqui para frente.`];
+  if (h.anos >= 5) {
+    if (h.pico >= 0.6 || !h.pico) return [1, `Pagou dividendos em todos os últimos 5 anos${h.pico && h.pico <= 1.5 ? ', em valores estáveis' : ''}: renda consistente.`];
+    return [0, `Pagou dividendos em todos os últimos 5 anos, mas os 12 meses recentes estão ${f1((1 - h.pico) * 100)}% abaixo da média: os pagamentos caíram.`];
+  }
+  if (h.anos >= 3) return [0, `Pagou dividendos em ${h.anos} dos últimos 5 anos: renda irregular.`];
+  if (dy < 3) return [0, `Pagou dividendos em só ${h.anos} dos últimos 5 anos: empresa que reinveste o lucro em vez de distribuir.`];
+  return [-1, `Pagou dividendos em só ${h.anos} dos últimos 5 anos: o dividend yield atual (${f1(dy)}%) pode não se repetir.`];
+}
+
 const f1 = (v) => Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 1 });
 const f2 = (v) => Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -201,6 +222,8 @@ function avaliarFundamentos(a) {
   }
   const pv = tipo === 'acao' ? pontoValuation(a) : null;
   if (pv) pontos.push({ nivel: pv[0], texto: pv[1] });
+  const pd = tipo === 'acao' ? pontoDividendos(a) : null;
+  if (pd) pontos.push({ nivel: pd[0], texto: pd[1] });
   if (pontos.length < 2) return { tipo, nivel: null, pontos, preenchidos: pontos.length };
   const media = pontos.reduce((s, p) => s + p.nivel, 0) / pontos.length;
   const nota = Math.round((media + 1) * 5 * 10) / 10; // 0 a 10

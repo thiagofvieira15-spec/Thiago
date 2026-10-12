@@ -110,7 +110,9 @@ function triagemIdeias() {
     return out;
   };
   const ord = (x, y) => y.av.nota - x.av.nota || y.margem - x.margem;
-  const dividendos = escolher(cands.filter((c) => c.est === 'dividendos' && (c.d.dy || 0) >= 7).sort(ord), 6);
+  // Dividendos: exige histórico consistente (quando o robô já baixou) e descarta pagamentos extraordinários
+  const consistente = (c) => { const h = MERCADO.dividendos?.[c.t]; return !h || (h.anos >= 4 && !(h.pico > 1.8)); };
+  const dividendos = escolher(cands.filter((c) => c.est === 'dividendos' && (c.d.dy || 0) >= 7 && consistente(c)).sort(ord), 6);
   const crescimento = escolher(cands.filter((c) => c.est !== 'dividendos' && (c.d.cresc || 0) >= 10 && c.d.pl > 0 && c.d.pl <= 15).sort(ord), 6);
 
   // Candidatas a sair: ações da carteira com fundamentos fracos/medianos e preço muito acima do teto e do setor
@@ -158,13 +160,18 @@ function cardPerfilAcoes() {
   </div>`;
 }
 
+function extraordinario(t, d) {
+  const h = MERCADO?.dividendos?.[t];
+  return h?.pico ? h.pico > 1.8 && (d.dy || 0) >= 3 : (d.dy || 0) > 15;
+}
+
 function linhaIdeia(c) {
   const m = c.d.setor && MERCADO?.setores?.[c.d.setor]?.pl;
   return `<tr>
     <td><strong>${esc(c.t)}</strong>${ehEstatal(c.t) ? ' <span class="tag avaliar">Estatal</span>' : ''}<br><span class="motivo">${esc(c.d.setor || '')}</span></td>
     <td class="num">${f1(c.av.nota)}</td>
     <td class="num">${f1(c.d.pl)}${m ? `<br><span class="motivo">setor ${f1(m)}</span>` : ''}</td>
-    <td class="num">${f1(c.d.dy || 0)}%${(c.d.dy || 0) > 15 ? '<br><span class="motivo neg">provável extraordinário</span>' : ''}</td>
+    <td class="num">${f1(c.d.dy || 0)}%${extraordinario(c.t, c.d) ? '<br><span class="motivo neg">provável extraordinário</span>' : MERCADO?.dividendos?.[c.t]?.anos >= 5 ? '<br><span class="motivo">pagou 5 de 5 anos</span>' : ''}</td>
     <td class="num">${f1(c.d.roe || 0)}%</td>
     <td class="num">${f1(c.d.cresc || 0)}%</td>
     <td class="num">${fmt(c.d.preco)}</td>

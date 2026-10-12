@@ -19,11 +19,13 @@ async function carregarMercado() {
   }
   window.MERCADO_ATUAL = MERCADO;
   if (MERCADO && typeof registrarHistorico === 'function') registrarHistorico();
+  if (MERCADO && typeof registrarRecomendacoes === 'function') registrarRecomendacoes();
   renderStatusMercado();
   renderCarteira();
   renderCenario();
   if (estado.perfil) renderDiagnostico();
   renderAnalise();
+  if (typeof renderAcompanhamento === 'function') renderAcompanhamento();
 }
 
 function dadoMercado(ticker) {

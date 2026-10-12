@@ -64,6 +64,7 @@ function dadosParaIA(aporte) {
         estilo: tipoAtivo(a) === 'acao' ? estiloDe(f) : undefined,
         estatal: tipoAtivo(a) === 'acao' ? ehEstatal(a.nome) : undefined,
         medianaSetor: st ? { pl: st.pl, pvp: st.pvp, roe: st.roe, margem: st.margem } : undefined,
+        dividendos5anos: typeof histDividendos === 'function' && histDividendos(a) ? { anosComPagamento: histDividendos(a).anos, porAno: histDividendos(a).dpa, ultimos12mSobreMedia: histDividendos(a).pico } : undefined,
         precoAtual: r2(preco(a)),
         precoTetoGraham: v?.graham ? r2(v.graham) : undefined,
         precoTetoBazin: v?.bazin ? r2(v.bazin) : undefined,

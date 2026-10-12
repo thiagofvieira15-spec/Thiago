@@ -182,3 +182,5 @@ code { background: var(--bg); padding: 1px 4px; border-radius: 4px; }
 .ia-texto p { margin: 6px 0; }
 .barra-empilhada { display: flex; height: 14px; border-radius: 7px; overflow: hidden; gap: 2px; margin: 8px 0; background: var(--bg); }
 .barra-empilhada span { display: block; height: 100%; }
+.avisos { border-color: var(--primaria); }
+.avisos ul.pontos li { align-items: flex-start; }

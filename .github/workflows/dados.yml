@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
 
 concurrency:
   group: dados
@@ -24,6 +25,8 @@ jobs:
         with:
           python-version: '3.12'
       - run: python scripts/atualizar_dados.py
+        env:
+          ARQUIVO_ALERTAS: ${{ runner.temp }}/alertas.md
       - name: Salvar dados no repositório
         run: |
           git config user.name "github-actions[bot]"
@@ -42,3 +45,11 @@ jobs:
           done
           echo "Não foi possível salvar os dados" >&2
           exit 1
+      - name: Abrir issue com alertas
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -s "$RUNNER_TEMP/alertas.md" ]; then
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "Alertas da carteira – $(TZ=America/Sao_Paulo date '+%d/%m %H:%M')" --body-file "$RUNNER_TEMP/alertas.md"
+          fi

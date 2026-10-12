@@ -7,6 +7,9 @@ Site estático, sem dependências. Avalia sua carteira de investimentos de acord
 - **Diagnóstico**: nota de 0 a 100, alocação atual comparada com a meta ajustada ao cenário, ação sugerida para cada ativo (vender, reduzir, comprar mais, manter) com o motivo, e o que incluir na carteira.
 - **Análise de ativos**: avalia ETFs (taxa, diversificação, países, P/L médio; inclui ETFs americanos como o VT) e os fundamentos de cada ação (P/L, P/VP, dividend yield, ROE, margem, dívida, crescimento) e de cada FII (P/VP, dividend yield comparado ao CDI, vacância, número de imóveis ou CRIs), com nota de 0 a 10. Para ações, os dados vêm automaticamente da brapi.dev; para FIIs, a maior parte é preenchida à mão. P/L, P/VP, ROE e margem das ações são comparados com a mediana do setor (calculada automaticamente). Cada ação tem preço-teto por Graham e Bazin, e cada FII tem o valor patrimonial por cota. Ativos com fundamentos fracos passam a "Avaliar" no diagnóstico e deixam de receber aportes no plano.
 - **Estilo e controle das ações**: cada ação é classificada como dividendos, crescimento ou misto, e como estatal ou privada. O Diagnóstico mostra a exposição da carteira e o que o cenário (juros, inflação, eleição) indica. A aba Análise traz uma triagem automática de ideias (dividendos de qualidade e crescimento a preço razoável, até 2 por setor) e as ações da carteira candidatas a sair.
+- **Histórico de dividendos**: o robô baixa do Fundamentus os proventos de cada ação líquida (até 80 por execução, renovados a cada semana) e mede em quantos dos últimos 5 anos ela pagou e se os 12 meses recentes fogem da média. Isso entra na nota da ação e a triagem de dividendos descarta pagamentos extraordinários e pagadoras irregulares.
+- **Avisos desde a última visita** (aba Diagnóstico): o que mudou desde a última vez que você tocou em "Entendi": Selic, nota de aderência, nível dos fundamentos, preço cruzando o preço-teto, quedas ou altas de 15% e classes que saíram da faixa.
+- **Placar das recomendações** (aba Evolução): uma vez por semana o site guarda as compras e vendas sugeridas e as ideias da triagem, com o preço do dia; depois de 30 dias mostra quantas bateram o Ibovespa (BOVA11) em 1-3, 3-6, 6-12 meses e mais de 1 ano. Fica no navegador e no backup.
 - **Plano de ação**: recebe o valor do aporte do mês e, opcionalmente, permite vendas para rebalancear. Indica quanto vender de cada ativo, com uma estimativa de IR, e onde comprar. A reserva de emergência informada nunca entra nas vendas.
 - **Evolução**: registro diário do patrimônio com gráfico, rentabilidade comparada ao CDI (descontando aportes) e controle de proventos (manual ou colando o extrato), com total de 12 meses e gráfico mensal.
 - **Parecer do Claude** (aba Diagnóstico): o site gera um resumo completo da carteira para colar no chat com o Claude; o parecer devolvido vem dentro do backup e aparece no site (sem chave de API).
@@ -41,3 +44,8 @@ No celular, abra o link e use **Adicionar à tela inicial** para usar como um ap
 Abra o `index.html` no navegador. Os dados ficam no `localStorage` do navegador.
 
 > Ferramenta educacional baseada em regras gerais de alocação. Não é recomendação individual de investimento.
+
+## Alertas por e-mail (opcional)
+
+O arquivo `alertas.json` define uma lista de códigos a vigiar. A cada atualização, o robô compara com a anterior e, se a Selic mudar, um ativo da lista variar mais que `quedaDiaPct` ou cruzar o preço-teto, abre uma issue no repositório; o GitHub avisa o dono por e-mail. Como o repositório é público, a lista fica visível (só os códigos, sem quantidades nem valores).
+

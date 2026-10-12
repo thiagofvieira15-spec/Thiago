@@ -3,10 +3,12 @@
 Fontes (sem cadastro nem token):
 - Fundamentus: tabelas de todas as ações e FIIs (cotação, P/L, P/VP, DY, ROE, vacância...)
 - Yahoo Finance: cotação de ETFs, que não aparecem no Fundamentus
+- Fundamentus (proventos.php): histórico de dividendos por ação, para medir consistência
 
 Roda no GitHub Actions (.github/workflows/dados.yml).
 """
 import json
+import os
 import re
 import sys
 import time
@@ -322,6 +324,78 @@ def setores(acoes_dados, anterior_acoes):
     return out
 
 
+def proventos_da_acao(t):
+    """Lista (data-com, valor por ação) dos dividendos e JCP da ação, pela página de proventos do Fundamentus."""
+    p = Tabela()
+    p.feed(baixar(f"https://www.fundamentus.com.br/proventos.php?papel={t}&tipo=2"))
+    cab = None
+    out = []
+    for l in p.linhas:
+        n = [normalizar(x) for x in l]
+        if "valor" in n and "data" in n:
+            cab = {"data": n.index("data"), "valor": n.index("valor"),
+                   "qtd": next((i for i, h in enumerate(n) if h.startswith("porquantas")), None)}
+            continue
+        if not cab or len(l) <= cab["valor"]:
+            continue
+        try:
+            data = datetime.strptime(l[cab["data"]], "%d/%m/%Y").date()
+        except ValueError:
+            continue
+        valor = num(l[cab["valor"]])
+        qtd = num(l[cab["qtd"]]) if cab["qtd"] is not None and len(l) > cab["qtd"] else 1
+        if valor and valor > 0:
+            out.append((data, valor / (qtd or 1)))
+    if cab is None:
+        raise RuntimeError("tabela de proventos não encontrada")
+    return out
+
+
+def historico_dividendos(acoes_dados, anterior, limite=80, validade_dias=7):
+    """Consistência dos dividendos nos últimos 5 anos completos e se os 12 meses recentes fogem do normal.
+    É lento (uma página por ação), então guarda o resultado e só refaz o que tem mais de uma semana,
+    no máximo `limite` ações por execução, priorizando as mais negociadas."""
+    hoje = datetime.now(timezone.utc).date()
+    anos = list(range(hoje.year - 5, hoje.year))
+    out = {t: v for t, v in (anterior or {}).items() if t in acoes_dados}
+    candidatas = [t for t, d in acoes_dados.items() if (d.get("liq") or 0) >= 1_000_000]
+
+    def idade(t):
+        try:
+            return (hoje - datetime.fromisoformat(out[t]["em"]).date()).days
+        except (KeyError, ValueError, TypeError):
+            return 10_000
+
+    fila = sorted((t for t in candidatas if idade(t) >= validade_dias),
+                  key=lambda t: (-idade(t), -(acoes_dados[t].get("liq") or 0)))[:limite]
+    erros = 0
+    for t in fila:
+        try:
+            prov = proventos_da_acao(t)
+        except Exception as e:
+            erros += 1
+            if erros <= 5:
+                print(f"aviso: proventos {t}: {e}", file=sys.stderr)
+            continue
+        finally:
+            time.sleep(0.3)
+        por_ano = {a: 0.0 for a in anos}
+        ult12 = 0.0
+        for data, v in prov:
+            if data.year in por_ano:
+                por_ano[data.year] += v
+            if 0 <= (hoje - data).days <= 365:
+                ult12 += v
+        media = sum(por_ano.values()) / len(anos)
+        item = {"em": hoje.isoformat(), "anos": sum(1 for v in por_ano.values() if v > 0),
+                "dpa": {str(a): round(v, 4) for a, v in por_ano.items()}, "dpa12m": round(ult12, 4)}
+        if media > 0:
+            item["pico"] = round(ult12 / media, 2)
+        out[t] = item
+    print(f"dividendos: {len(out)} ações com histórico ({len(fila) - erros} atualizadas agora, {erros} erros)")
+    return out
+
+
 def etf_eua_nasdaq(t):
     req = urllib.request.Request(f"https://api.nasdaq.com/api/quote/{t}/info?assetclass=etf", headers={
         "User-Agent": UA, "Accept": "application/json, text/plain, */*",
@@ -518,6 +592,48 @@ def macro():
     return out
 
 
+def preco_teto(d):
+    """Maior preço-teto entre Graham e Bazin (mesmas contas do site)."""
+    p, pl, pvp, dy = d.get("preco"), d.get("pl"), d.get("pvp"), d.get("dy")
+    if not p:
+        return None
+    graham = (22.5 * (p / pl) * (p / pvp)) ** 0.5 if pl and pl > 0 and pvp and pvp > 0 else 0
+    bazin = (dy / 100) * p / 0.06 if dy and dy > 0 else 0
+    return max(graham, bazin) or None
+
+
+def alertas(anterior, atual):
+    """Compara com a execução anterior os ativos da lista de alertas.json e devolve os avisos em texto.
+    No GitHub Actions, viram uma issue (o GitHub manda e-mail para o dono do repositório)."""
+    arq = RAIZ / "alertas.json"
+    if not arq.exists() or not anterior:
+        return []
+    cfg = json.loads(arq.read_text(encoding="utf-8"))
+    out = []
+    br = lambda v: f"{v:.2f}".replace(".", ",")
+    s0, s1 = (anterior.get("macro") or {}).get("selic"), (atual.get("macro") or {}).get("selic")
+    if cfg.get("selic") and s0 and s1 and abs(s1 - s0) >= 0.2:
+        out.append(f"Selic {'subiu' if s1 > s0 else 'caiu'} de {br(s0)}% para {br(s1)}%.")
+    queda = cfg.get("quedaDiaPct", 7)
+    for t in cfg.get("tickers", []):
+        t = t.upper().strip()
+        for parte in ("acoes", "fiis"):
+            d0, d1 = (anterior.get(parte) or {}).get(t), (atual.get(parte) or {}).get(t)
+            if not d0 or not d1 or not d0.get("preco") or not d1.get("preco"):
+                continue
+            var = (d1["preco"] / d0["preco"] - 1) * 100
+            if abs(var) >= queda:
+                out.append(f"{t} {'subiu' if var > 0 else 'caiu'} {br(abs(var))}% (R$ {br(d0['preco'])} → R$ {br(d1['preco'])}).")
+            if parte == "acoes":
+                t0, t1 = preco_teto(d0), preco_teto(d1)
+                if t0 and t1:
+                    if d0["preco"] > t0 and d1["preco"] <= t1:
+                        out.append(f"{t} caiu abaixo do preço-teto (R$ {br(t1)}): voltou a ter margem de segurança.")
+                    elif d0["preco"] <= t0 and d1["preco"] > t1:
+                        out.append(f"{t} passou do preço-teto (R$ {br(t1)}).")
+    return out
+
+
 def main():
     anterior = {}
     if SAIDA.exists():
@@ -541,12 +657,27 @@ def main():
         print(f"ERRO em setores: {e}", file=sys.stderr)
         resultado["setores"] = anterior.get("setores", {})
     try:
+        if resultado.get("acoes"):
+            resultado["dividendos"] = historico_dividendos(resultado["acoes"], anterior.get("dividendos", {}))
+    except Exception as e:
+        print(f"ERRO em dividendos: {e}", file=sys.stderr)
+        resultado["dividendos"] = anterior.get("dividendos", {})
+    try:
         resultado["macro"] = macro() or anterior.get("macro", {})
     except Exception as e:
         print(f"ERRO em macro: {e}", file=sys.stderr)
         resultado["macro"] = anterior.get("macro", {})
     if not any(resultado[k] for k in ("acoes", "fiis", "etfs", "etfsEUA")):
         sys.exit("nenhuma fonte respondeu")
+    try:
+        avisos = alertas(anterior, resultado)
+        destino = os.environ.get("ARQUIVO_ALERTAS")
+        if avisos:
+            print("alertas:\n" + "\n".join(avisos))
+            if destino:
+                Path(destino).write_text("\n".join(f"- {a}" for a in avisos) + "\n\nVeja os detalhes no site.\n", encoding="utf-8")
+    except Exception as e:
+        print(f"ERRO em alertas: {e}", file=sys.stderr)
     SAIDA.parent.mkdir(exist_ok=True)
     SAIDA.write_text(json.dumps(resultado, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 
