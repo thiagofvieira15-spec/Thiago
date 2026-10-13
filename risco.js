@@ -77,7 +77,8 @@ function analisarRisco() {
     if (classe(a.classe).rendaFixa) { itens.push({ a, w, rf: true }); continue; }
     const t = a.nome.replace(/F$/, '');
     let s = seriePrecos(t), proxy = null;
-    if (!s && PROXY_CLASSE[a.classe]) { proxy = PROXY_CLASSE[a.classe]; s = seriePrecos(proxy); }
+    // Histórico curto (ativo novo ou que mudou de código): usa o substituto da classe
+    if ((!s || s.size < 37) && PROXY_CLASSE[a.classe]) { proxy = PROXY_CLASSE[a.classe]; s = seriePrecos(proxy); }
     if (!s) { semDados.push(a.nome); continue; }
     itens.push({ a, w, s, proxy });
   }
@@ -149,7 +150,8 @@ function cardRisco() {
   }
   const fin = r.listaSetores.filter(([s]) => FINANCEIRO.test(s)).reduce((t, [, p]) => t + p, 0);
   const nomesFin = r.listaSetores.filter(([s]) => FINANCEIRO.test(s)).map(([s]) => s);
-  if (fin > 8 && nomesFin.length > 1) alertas.push(`Setor financeiro somado (${nomesFin.join(', ')}): ${pct(fin)} do patrimônio. São negócios diferentes, mas sofrem juntos em crises de crédito.`);
+  const pesoAcoes = investidos().filter((a) => tipoAtivo(a) === 'acao').reduce((t, a) => t + (valorAtivo(a) / totais().total) * 100, 0);
+  if (nomesFin.length > 1 && (fin > 8 || (pesoAcoes && fin / pesoAcoes > 0.25))) alertas.push(`Setor financeiro somado (${nomesFin.join(', ')}): ${pct(fin)} do patrimônio, ${pct((fin / pesoAcoes) * 100)} das suas ações. São negócios diferentes, mas sofrem juntos em crises de crédito.`);
   const maxSetor = Math.max(...r.listaSetores.map(([, p]) => p), 1);
   const topRisco = r.rv.slice().sort((x, y) => y.risco - x.risco).slice(0, 5);
 
@@ -185,6 +187,6 @@ function cardRisco() {
         <tbody>${r.rv.slice().sort((x, y) => y.vol - x.vol).map((x) => `<tr><td>${esc(x.a.nome)}${x.proxy ? ` <span class="motivo">(por ${x.proxy})</span>` : ''}</td><td class="num">${f1(x.vol)}%</td><td class="num neg">${f1(x.queda)}%</td><td class="num">${f1(x.ret12)}%</td></tr>`).join('')}</tbody>
       </table></div>
     </details>
-    <p class="dica">Variação mensal de preço (Fundamentus, Nasdaq, Banco Central e Kraken), sem contar proventos; ativos em dólar convertidos para reais. Tesouro IPCA+ entra como renda fixa sem oscilação (supõe que você leva até o vencimento); vendido antes, ele oscila bastante.${r.semDados.length ? ` Sem histórico: ${esc(r.semDados.join(', '))}.` : ''}</p>
+    <p class="dica">Variação mensal de preço (B3, Nasdaq, Banco Central e Kraken), sem contar proventos; ativos em dólar convertidos para reais. Tesouro IPCA+ entra como renda fixa sem oscilação (supõe que você leva até o vencimento); vendido antes, ele oscila bastante.${r.semDados.length ? ` Sem histórico: ${esc(r.semDados.join(', '))}.` : ''}</p>
   </div>`;
 }
