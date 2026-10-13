@@ -31,13 +31,14 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          cp dados/mercado.json "$RUNNER_TEMP/mercado.json"
+          cp dados/mercado.json dados/historico.json "$RUNNER_TEMP/" 2>/dev/null || cp dados/mercado.json "$RUNNER_TEMP/"
           # Parte sempre da versão mais nova do branch e grava só o arquivo de dados (evita conflitos)
           for i in 1 2 3; do
             git fetch -q origin "$GITHUB_REF_NAME"
             git reset -q --hard "origin/$GITHUB_REF_NAME"
             cp "$RUNNER_TEMP/mercado.json" dados/mercado.json
-            git add dados/mercado.json
+            [ -f "$RUNNER_TEMP/historico.json" ] && cp "$RUNNER_TEMP/historico.json" dados/historico.json
+            git add dados/mercado.json dados/historico.json 2>/dev/null || git add dados/mercado.json
             if git diff --cached --quiet; then echo "Sem mudanças"; exit 0; fi
             git commit -q -m "Atualiza cotações e indicadores"
             git push -q origin "HEAD:$GITHUB_REF_NAME" && exit 0

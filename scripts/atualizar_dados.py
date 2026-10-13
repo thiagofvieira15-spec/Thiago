@@ -145,7 +145,6 @@ def fiis():
         d = {k: num(l[i]) for k, i in c.items() if k not in ("papel", "segmento")}
         if not d["preco"] or not d["liq"]:
             continue
-        d.pop("liq")
         # Fundos de papel aparecem com 0 imóveis e 0% de vacância: não são informações úteis
         if not d.get("nAtivos"):
             d.pop("nAtivos", None)
@@ -669,6 +668,15 @@ def main():
         resultado["macro"] = anterior.get("macro", {})
     if not any(resultado[k] for k in ("acoes", "fiis", "etfs", "etfsEUA")):
         sys.exit("nenhuma fonte respondeu")
+    try:
+        import historico
+        arq_hist = SAIDA.parent / "historico.json"
+        hist_ant = json.loads(arq_hist.read_text(encoding="utf-8")) if arq_hist.exists() else {}
+        hist = historico.atualizar(resultado, hist_ant)
+        SAIDA.parent.mkdir(exist_ok=True)
+        arq_hist.write_text(json.dumps(hist, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    except Exception as e:
+        print(f"ERRO em histórico: {e}", file=sys.stderr)
     try:
         avisos = alertas(anterior, resultado)
         destino = os.environ.get("ARQUIVO_ALERTAS")
