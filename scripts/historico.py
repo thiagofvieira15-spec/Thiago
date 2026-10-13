@@ -1,6 +1,7 @@
 """Histórico de 5 anos para comparar cada ativo com o próprio passado e medir risco.
 
-- Preços mensais (Yahoo Finance, ajustados por desdobramentos e proventos): volatilidade,
+- Preços mensais (Fundamentus para ações e FIIs, Nasdaq para ETFs americanos, Banco Central para o
+  dólar, Kraken para o bitcoin; Yahoo como reserva): volatilidade,
   maior queda e correlação entre os ativos da carteira (calculadas no site).
 - Lucro líquido anual (dados abertos da CVM, demonstrações anuais DFP): anos com prejuízo,
   crescimento do lucro e P/L de cada ano, usando o preço médio do ano e o nº de ações atual.
@@ -20,6 +21,7 @@ from datetime import datetime, timezone
 
 UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
 CVM = "https://dados.cvm.gov.br/dados/CIA_ABERTA/DOC"
+VERSAO_LUCROS = 2  # muda quando a leitura dos lucros muda, para refazer na próxima execução
 
 
 def _get(url, timeout=60, binario=False):
@@ -51,10 +53,117 @@ def precos_yahoo(simbolo):
                         out.append((mes, c, a))
             if len(out) < 12:
                 raise RuntimeError("histórico curto")
-            return out
+            return _meses_seguidos(out)
         except Exception as e:
             ultimo = e
     raise RuntimeError(f"Yahoo: {ultimo}")
+
+
+def _mensal(diarios):
+    """[(date, preço)] diários -> [(mês, último preço do mês, mesmo preço)] dos últimos 5 anos."""
+    por_mes = {}
+    for d, v in sorted(diarios):
+        if v and v > 0:
+            por_mes[d.strftime("%Y-%m")] = v
+    meses = sorted(por_mes)[-61:]
+    if len(meses) < 12:
+        raise RuntimeError("histórico curto")
+    return _meses_seguidos([(m, por_mes[m], por_mes[m]) for m in meses])
+
+
+def _sem_desdobramentos(serie):
+    """Séries sem ajuste: um salto de 2x, 3x, 10x... num mês costuma ser desdobramento/grupamento.
+    Reajusta os preços anteriores para o salto sumir (o retorno do mês fica zero)."""
+    out = [list(x) for x in serie]
+    for i in range(len(out) - 1, 0, -1):
+        r = out[i][2] / out[i - 1][2]
+        fator = r if r >= 1 else 1 / r
+        # Desdobramento/grupamento: salto grande e próximo de uma razão "redonda" (2, 3, 4, 5, 10...)
+        if fator >= 1.8 and any(abs(fator / k - 1) < 0.1 for k in (2, 3, 4, 5, 8, 10, 20, 50, 100)):
+            for j in range(i):
+                out[j][1] *= r
+                out[j][2] *= r
+    return [tuple(x) for x in out]
+
+
+def precos_fundamentus(t):
+    texto = _get(f"https://www.fundamentus.com.br/amline/cot_hist.php?papel={t}", 30)
+    try:
+        d = json.loads(texto)
+    except ValueError:
+        raise RuntimeError(f"resposta inesperada: {texto[:120]!r}")
+    if isinstance(d, dict):
+        d = next((v for v in d.values() if isinstance(v, list)), [])
+    diarios = []
+    for p in d:
+        if isinstance(p, (list, tuple)) and len(p) >= 2:
+            ts, v = p[0], p[1]
+            ts = ts / 1000 if ts > 1e11 else ts
+            diarios.append((datetime.fromtimestamp(ts, timezone.utc).date(), float(v)))
+    if not diarios:
+        raise RuntimeError(f"sem pontos: {texto[:120]!r}")
+    return _sem_desdobramentos(_mensal(diarios))
+
+
+def precos_nasdaq(t):
+    hoje = datetime.now(timezone.utc).date()
+    url = (f"https://api.nasdaq.com/api/quote/{t}/historical?assetclass=etf&fromdate={hoje.year - 5}-{hoje.month:02d}-01"
+           f"&todate={hoje.isoformat()}&limit=2000")
+    req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/json, text/plain, */*",
+                                               "Origin": "https://www.nasdaq.com", "Referer": "https://www.nasdaq.com/"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        d = json.loads(r.read().decode("utf-8"))
+    linhas = (((d.get("data") or {}).get("tradesTable") or {}).get("rows")) or []
+    diarios = [(datetime.strptime(l["date"], "%m/%d/%Y").date(), float(str(l["close"]).replace("$", "").replace(",", "")))
+               for l in linhas if l.get("close")]
+    return _sem_desdobramentos(_mensal(diarios))
+
+
+def precos_dolar():
+    hoje = datetime.now(timezone.utc).date()
+    d = json.loads(_get(f"https://api.bcb.gov.br/dados/serie/bcdata.sgs.3696/dados?formato=json&dataInicial=01/01/{hoje.year - 6}", 60))
+    diarios = [(datetime.strptime(x["data"], "%d/%m/%Y").date(), float(str(x["valor"]).replace(",", "."))) for x in d]
+    return _mensal(diarios)
+
+
+def precos_bitcoin():
+    d = json.loads(_get("https://api.kraken.com/0/public/OHLC?pair=XBTUSD&interval=21600", 30))
+    linhas = next(iter(v for k, v in d["result"].items() if k != "last"))
+    return _mensal([(datetime.fromtimestamp(int(l[0]), timezone.utc).date(), float(l[4])) for l in linhas])
+
+
+def precos(t, simbolo):
+    """Tenta as fontes na ordem; o Yahoo costuma bloquear servidores do GitHub (erro 429)."""
+    if t == "USDBRL":
+        fontes = [precos_dolar]
+    elif t == "BTC":
+        fontes = [precos_bitcoin]
+    elif simbolo.endswith(".SA"):
+        fontes = [lambda: precos_fundamentus(t), lambda: precos_yahoo(simbolo)]
+    else:
+        fontes = [lambda: precos_nasdaq(t), lambda: precos_yahoo(simbolo)]
+    erros = []
+    for f in fontes:
+        try:
+            return f()
+        except Exception as e:
+            erros.append(str(e)[:150])
+    raise RuntimeError(" | ".join(erros))
+
+
+def _meses_seguidos(serie):
+    """Preenche meses sem negócio com o preço anterior, para a série ficar mês a mês."""
+    out = [serie[0]]
+    for mes, c, a in serie[1:]:
+        y, m = map(int, out[-1][0].split("-"))
+        while True:
+            y, m = (y + 1, 1) if m == 12 else (y, m + 1)
+            prox = f"{y:04d}-{m:02d}"
+            if prox >= mes:
+                break
+            out.append((prox, out[-1][1], out[-1][2]))
+        out.append((mes, c, a))
+    return out
 
 
 def sig(v, n=4):
@@ -136,7 +245,7 @@ def lucros_cvm(anos):
                 if exerc not in anos or exerc in out.get(cnpj, {}):
                     continue
                 v = _lucro_da_empresa(linhas)
-                if v is not None:
+                if v:  # zero costuma ser demonstração consolidada vazia; tenta a individual
                     out.setdefault(cnpj, {})[exerc] = v
         print(f"DFP {ano}: {len(out)} empresas com lucro lido")
     return out
@@ -144,7 +253,7 @@ def lucros_cvm(anos):
 
 def numero_de_acoes(t):
     html = _get(f"https://www.fundamentus.com.br/detalhes.php?papel={t}", 30)
-    m = re.search(r"Nro\. A[çc][õo]es.*?<span class=\"txt\">([\d.]+)<", html, re.S)
+    m = re.search(r"Nro\. A\S{1,6}es</span>.*?<span class=\"txt\">([\d.]+)<", html, re.S)
     if not m:
         raise RuntimeError("nº de ações não encontrado")
     return int(m.group(1).replace(".", ""))
@@ -169,22 +278,23 @@ def atualizar(mercado, anterior, limite_precos=170, validade_dias=7):
     lista += [(t, f"{t}.SA", d.get("liq") or 0) for t, d in fiis.items() if (d.get("liq") or 0) >= 300_000]
     lista += [(t, f"{t}.SA", 1e9) for t in (mercado.get("etfs") or {})]
     lista += [(t, t, 1e9) for t in (mercado.get("etfsEUA") or {})]
+    lista += [("USDBRL", "BRL=X", 1e9), ("BTC", "BTC-USD", 1e9)]  # dólar (converte ativos americanos) e bitcoin
     fila = sorted((x for x in lista if idade(x[0]) >= validade_dias), key=lambda x: (-idade(x[0]), -x[2]))[:limite_precos]
 
     erros = 0
     for t, simbolo, _ in fila:
         try:
-            serie = precos_yahoo(simbolo)
+            serie = precos(t, simbolo)
         except Exception as e:
             erros += 1
-            if erros <= 5:
+            if erros <= 8:
                 print(f"aviso: preços {t}: {e}", file=sys.stderr)
-            if erros >= 15 and erros == fila.index((t, simbolo, _)) + 1:
-                print("aviso: Yahoo parece bloqueado, parando", file=sys.stderr)
+            if erros >= 20 and erros == fila.index((t, simbolo, _)) + 1:
+                print("aviso: fontes de preços parecem bloqueadas, parando", file=sys.stderr)
                 break
             continue
         finally:
-            time.sleep(0.4)
+            time.sleep(0.3)
         item = ativos.get(t, {})
         item.update({"em": hoje.isoformat(), "m0": serie[0][0], "m": [sig(a) for _, _, a in serie]})
         # Preço médio de cada ano (sem ajuste por proventos), para o P/L histórico
@@ -197,7 +307,8 @@ def atualizar(mercado, anterior, limite_precos=170, validade_dias=7):
 
     # Lucros da CVM: renova uma vez por mês
     lucros_em = anterior.get("lucrosEm")
-    velho = not lucros_em or (hoje - datetime.fromisoformat(lucros_em).date()).days >= 30
+    velho = (not lucros_em or anterior.get("lucrosVersao") != VERSAO_LUCROS
+             or (hoje - datetime.fromisoformat(lucros_em).date()).days >= 30)
     if velho:
         try:
             anos = list(range(hoje.year - 5, hoje.year))
@@ -245,4 +356,4 @@ def atualizar(mercado, anterior, limite_precos=170, validade_dias=7):
 
     exemplo = {t: (ativos.get(t, {}).get("plMed"), acoes.get(t, {}).get("pl")) for t in ("WEGE3", "ITUB4", "VALE3", "PETR4", "VIVT3") if t in ativos}
     print(f"P/L médio 5 anos vs atual (conferência): {exemplo}")
-    return {"atualizadoEm": datetime.now(timezone.utc).isoformat(timespec="seconds"), "lucrosEm": lucros_em, "ativos": ativos}
+    return {"atualizadoEm": datetime.now(timezone.utc).isoformat(timespec="seconds"), "lucrosEm": lucros_em, "lucrosVersao": VERSAO_LUCROS, "ativos": ativos}
