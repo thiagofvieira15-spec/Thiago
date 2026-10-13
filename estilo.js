@@ -120,7 +120,7 @@ function triagemIdeias() {
     const av = avaliarFundamentos(a);
     const f = fundAtivo(a);
     const v = valuation(a);
-    const teto = v ? Math.max(v.graham || 0, v.bazin || 0) : 0;
+    const teto = v ? tetoMaior(v) : 0;
     // Mesma conta dos cartões de análise: quanto o preço está acima do maior preço-teto
     const acimaTeto = teto ? -(teto / v.p - 1) * 100 : 0;
     const m = medSetor(a, 'pl');

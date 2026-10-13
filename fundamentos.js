@@ -90,7 +90,11 @@ const INDICADORES = {
       : [-1, `Receita caindo ${f1(-v)}% ao ano.`]],
   ],
   fii: [
-    ['pvp', 'P/VP', 'x', (v) => v < 0.85 ? [0, `P/VP de ${f2(v)}: bem abaixo do patrimônio. Pode ser oportunidade ou sinal de problema; investigue.`]
+    ['pvp', 'P/VP', 'x', (v, a) => tipoFII(a) === 'papel' ? (v < 0.9 ? [0, `P/VP de ${f2(v)}: desconto grande para um fundo de crédito. O mercado desconfia de algum CRI da carteira; investigue.`]
+      : v <= 1.03 ? [1, `P/VP de ${f2(v)}: preço justo para um fundo de crédito.`]
+      : v <= 1.08 ? [0, `P/VP de ${f2(v)}: leve ágio. Em fundo de crédito, o ágio reduz o retorno sem aumentar o valor dos títulos.`]
+      : [-1, `P/VP de ${f2(v)}: ágio alto para um fundo de crédito.`])
+      : v < 0.85 ? [0, `P/VP de ${f2(v)}: bem abaixo do patrimônio. Pode ser oportunidade ou sinal de problema; investigue.`]
       : v <= 1.05 ? [1, `P/VP de ${f2(v)}: preço justo em relação ao patrimônio.`]
       : v <= 1.15 ? [0, `P/VP de ${f2(v)}: leve ágio sobre o patrimônio.`]
       : [-1, `P/VP de ${f2(v)}: ágio alto. Você paga bem mais que o valor dos imóveis ou títulos.`]],
@@ -123,6 +127,13 @@ const INDICADORES = {
     ['dy', 'Dividend yield', '%', (v) => [0, `Dividend yield de ${f1(v)}% ao ano. Em ETF de crescimento global, o retorno vem principalmente da valorização.`]],
   ],
 };
+
+// FII de papel (crédito imobiliário/CRIs, ou fundo de fundos) ou de tijolo (imóveis)
+function tipoFII(a) {
+  const f = a.fund || {};
+  if (f.tipoFII) return f.tipoFII;
+  return f.nAtivos > 0 ? 'tijolo' : 'papel';
+}
 
 // Dados de referência de ETFs (fonte: sites dos gestores; valores aproximados — confira e corrija se necessário)
 const ETF_INFO = {
@@ -167,17 +178,60 @@ function valuation(a) {
     const vpa = f.pvp > 0 ? p / f.pvp : null;
     const graham = lpa && vpa ? Math.sqrt(22.5 * lpa * vpa) : null;
     const bazin = f.dy > 0 ? ((f.dy / 100) * p) / (TAXA_BAZIN / 100) : null;
-    if (!graham && !bazin) return null;
-    return { tipo, p, graham, bazin };
+    // P/L médio da própria empresa nos últimos anos: só para quem teve lucro em todos os anos
+    const h = histAtivo(a);
+    const hist = lpa && h?.plMed && lucroConsistente(h) ? lpa * h.plMed : null;
+    if (!graham && !bazin && !hist) return null;
+    return { tipo, p, graham, bazin, hist, plMed: h?.plMed };
   }
   if (tipo === 'fii' && f.pvp > 0) return { tipo, p, vp: p / f.pvp };
   return null;
 }
 
+// Histórico de 5 anos (preços mensais, lucros e P/L de cada ano), baixado pelo robô
+function histAtivo(a) {
+  const h = typeof MERCADO !== 'undefined' && MERCADO?.historico;
+  return (h && h[a.nome.replace(/F$/, '')]) || null;
+}
+
+function lucroConsistente(h) {
+  const l = Object.values(h?.lucros || {});
+  return l.length >= 4 && l.every((v) => v > 0);
+}
+
+// Maior preço-teto entre os métodos disponíveis
+const tetoMaior = (v) => (v ? Math.max(v.graham || 0, v.bazin || 0, v.hist || 0) : 0);
+
+// Comparação com o próprio passado: P/L de hoje contra a mediana dos últimos anos e evolução do lucro
+function pontosHistorico(a) {
+  const h = histAtivo(a);
+  if (!h) return [];
+  const out = [];
+  const f = fundAtivo(a);
+  if (h.plMed && f.pl > 0) {
+    const r = f.pl / h.plMed;
+    out.push(r <= 0.85 ? [1, `P/L de ${f1(f.pl)} abaixo da média da própria empresa nos últimos anos (${f1(h.plMed)}): mais barata que o normal dela.`]
+      : r <= 1.2 ? [0, `P/L de ${f1(f.pl)} perto da média da própria empresa nos últimos anos (${f1(h.plMed)}).`]
+      : [-1, `P/L de ${f1(f.pl)} acima da média da própria empresa nos últimos anos (${f1(h.plMed)}): mais cara que o normal dela.`]);
+  }
+  const anos = Object.keys(h.lucros || {}).sort();
+  if (anos.length >= 4) {
+    const l = anos.map((k) => h.lucros[k]);
+    const prej = l.filter((v) => v <= 0).length;
+    const ini = l[0], fim = l[l.length - 1];
+    const cagr = ini > 0 && fim > 0 ? (Math.pow(fim / ini, 1 / (l.length - 1)) - 1) * 100 : null;
+    if (prej) out.push([-1, `Teve prejuízo em ${prej} dos últimos ${l.length} anos (${anos[0]}–${anos[anos.length - 1]}): lucro instável.`]);
+    else if (cagr !== null && cagr >= 5) out.push([1, `Lucro em todos os últimos ${l.length} anos, crescendo ${f1(cagr)}% ao ano.`]);
+    else if (cagr !== null && cagr <= -10) out.push([-1, `Lucro em todos os anos, mas caindo ${f1(-cagr)}% ao ano desde ${anos[0]}.`]);
+    else out.push([0, `Lucro em todos os últimos ${l.length} anos${cagr !== null ? `, variando ${f1(cagr)}% ao ano` : ''}.`]);
+  }
+  return out;
+}
+
 function pontoValuation(a) {
   const v = valuation(a);
   if (!v || v.tipo !== 'acao') return null;
-  const teto = Math.max(v.graham || 0, v.bazin || 0);
+  const teto = tetoMaior(v);
   const margem = (teto / v.p - 1) * 100;
   if (margem >= 0) return [1, `Preço abaixo do preço-teto (${fmt(teto)}): margem de segurança de ${f1(margem)}%.`];
   if (margem >= -33) return [0, `Preço ${f1(-margem)}% acima do maior preço-teto (${fmt(teto)}). Sem margem de segurança, mas não exagerado.`];
@@ -224,6 +278,7 @@ function avaliarFundamentos(a) {
   if (pv) pontos.push({ nivel: pv[0], texto: pv[1] });
   const pd = tipo === 'acao' ? pontoDividendos(a) : null;
   if (pd) pontos.push({ nivel: pd[0], texto: pd[1] });
+  if (tipo === 'acao') for (const [nivel, texto] of pontosHistorico(a)) pontos.push({ nivel, texto });
   if (pontos.length < 2) return { tipo, nivel: null, pontos, preenchidos: pontos.length };
   const media = pontos.reduce((s, p) => s + p.nivel, 0) / pontos.length;
   const nota = Math.round((media + 1) * 5 * 10) / 10; // 0 a 10
@@ -374,9 +429,10 @@ function renderValuation(a) {
     <tbody>
       ${linha('Graham', v.graham, '√(22,5 × LPA × VPA): valor justo para empresas de lucro estável')}
       ${linha(`Bazin (${TAXA_BAZIN}%)`, v.bazin, `Dividendos por ação ÷ ${TAXA_BAZIN}%: para quem busca renda`)}
+      ${linha('Média histórica', v.hist, `Lucro por ação × P/L médio da própria empresa (${v.plMed ? f1(v.plMed) : '—'}): o preço "normal" dela`)}
     </tbody>
   </table></div>
-  <p class="dica">Margem positiva = preço abaixo do teto. Graham subestima empresas de crescimento (ex.: WEGE3); Bazin só faz sentido para boas pagadoras de dividendos. Com a Selic em ${f2(cenario().selic)}%, um dividend yield de ${TAXA_BAZIN}% é modesto, então use o Bazin com cautela.</p>`;
+  <p class="dica">Margem positiva = preço abaixo do teto. Graham subestima empresas de crescimento (ex.: WEGE3), por isso há também a média histórica (só para empresas com lucro em todos os anos); Bazin só faz sentido para boas pagadoras de dividendos. Com a Selic em ${f2(cenario().selic)}%, um dividend yield de ${TAXA_BAZIN}% é modesto, então use o Bazin com cautela.</p>`;
 }
 
 function renderCartaoAtivo(a, av) {
@@ -387,7 +443,7 @@ function renderCartaoAtivo(a, av) {
   const defs = INDICADORES[av.tipo];
   return `<div class="card">
     <h3 style="margin-top:0">${esc(a.nome)}
-      <span class="tag manter">${{ fii: 'FII', etf: 'ETF', acao: 'Ação' }[av.tipo]}</span>
+      <span class="tag manter">${av.tipo === 'fii' ? `FII de ${tipoFII(a)}` : { etf: 'ETF', acao: 'Ação' }[av.tipo]}</span>
       ${typeof tagsEstilo === 'function' ? tagsEstilo(a) : ''}
       ${av.nivel ? `<span class="tag ${TAG_NIVEL[av.nivel]}">${ROTULO_NIVEL[av.nivel]} · ${f1(av.nota)}/10</span>` : '<span class="tag avaliar">Preencha ao menos 2 indicadores</span>'}
     </h3>

@@ -30,6 +30,15 @@ function dadosParaIA(aporte) {
     proventos12m: r2(prov12),
     aporteDoMes: aporte || null,
     notaAderencia: dg.nota,
+    meta: estado.meta || null,
+    risco: (() => {
+      const r = typeof analisarRisco === 'function' ? analisarRisco() : null;
+      if (!r || r.poucos) return null;
+      return { oscilacaoAnualPct: r2(r.vol), piorQuedaPct: r2(r.queda.pct), meses: r.n,
+        setoresPctPatrimonio: Object.fromEntries(r.listaSetores.map(([s, p]) => [s, r2(p)])),
+        paresCorrelacionados: r.pares.map((p) => `${p.a}/${p.b} ${r2(p.c)}`),
+        participacaoNoRisco: Object.fromEntries(r.rv.map((x) => [x.a.nome, r2(x.risco)])) };
+    })(),
     exposicaoAcoes: (() => { const e = exposicaoAcoes(); return { dividendosPct: r2(e.dividendos), crescimentoPct: r2(e.crescimento), mistoPct: r2(e.misto), estataisPct: r2(e.estatais), plMedioCrescimento: r2(e.plMedioCrescimento) }; })(),
     alocacao: CLASSES.map((c) => ({
       classe: c.nome,
@@ -68,6 +77,9 @@ function dadosParaIA(aporte) {
         precoAtual: r2(preco(a)),
         precoTetoGraham: v?.graham ? r2(v.graham) : undefined,
         precoTetoBazin: v?.bazin ? r2(v.bazin) : undefined,
+        precoTetoMediaHistorica: v?.hist ? r2(v.hist) : undefined,
+        historico5anos: histAtivo(a) ? { plMedio: histAtivo(a).plMed, plPorAno: histAtivo(a).pl, lucroMilhoesPorAno: histAtivo(a).lucros } : undefined,
+        tipoFII: tipoAtivo(a) === 'fii' ? tipoFII(a) : undefined,
       };
     }),
   };

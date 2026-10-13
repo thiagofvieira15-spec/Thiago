@@ -10,6 +10,11 @@ async function carregarMercado() {
     const r = await fetch(`dados/mercado.json?t=${Date.now()}`, { cache: 'no-store' });
     if (!r.ok) throw new Error(r.status);
     MERCADO = await r.json();
+    // Histórico de 5 anos (opcional): preços mensais, lucros e P/L por ano
+    try {
+      const rh = await fetch(`dados/historico.json?t=${Date.now()}`, { cache: 'no-store' });
+      if (rh.ok) MERCADO.historico = (await rh.json()).ativos;
+    } catch (e) { /* segue sem histórico */ }
   } catch (e) {
     MERCADO = null; // aberto como arquivo local ou ainda sem dados
   }

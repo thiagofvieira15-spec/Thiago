@@ -17,7 +17,7 @@ function fotoVisita() {
     if (tipo !== 'acao' && tipo !== 'fii') continue;
     const av = avaliarFundamentos(a);
     const v = valuation(a);
-    const teto = v && v.tipo === 'acao' ? Math.max(v.graham || 0, v.bazin || 0) : 0;
+    const teto = v && v.tipo === 'acao' ? tetoMaior(v) : 0;
     ativos[a.nome] = { nivel: av.nivel, preco: preco(a), teto: teto || null };
   }
   const classes = {};
@@ -208,6 +208,7 @@ function renderPlacar() {
 function renderAcompanhamento() {
   renderAvisos();
   renderPlacar();
+  if (typeof renderMetas === 'function') renderMetas();
 }
 
 renderAcompanhamento();

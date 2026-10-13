@@ -940,6 +940,8 @@ function renderDiagnostico() {
 
     ${typeof cardPerfilAcoes === 'function' ? cardPerfilAcoes() : ''}
 
+    ${typeof cardRisco === 'function' ? cardRisco() : ''}
+
     ${inclusoes.length ? `
     <div class="card">
       <h2>O que incluir na carteira</h2>
