@@ -4,7 +4,7 @@
   dólar, Kraken para o bitcoin; Yahoo como reserva): volatilidade,
   maior queda e correlação entre os ativos da carteira (calculadas no site).
 - Lucro líquido anual (dados abertos da CVM, demonstrações anuais DFP): anos com prejuízo,
-  crescimento do lucro e P/L de cada ano, usando o preço médio do ano e o nº de ações atual.
+  crescimento do lucro e P/L de cada ano (calibrado pelo P/L atual).
 
 Grava dados/historico.json. É lento, então guarda o que já baixou e renova aos poucos.
 """
@@ -22,6 +22,7 @@ from datetime import datetime, timezone
 UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
 CVM = "https://dados.cvm.gov.br/dados/CIA_ABERTA/DOC"
 VERSAO_LUCROS = 2  # muda quando a leitura dos lucros muda, para refazer na próxima execução
+VERSAO_PRECOS = 2  # idem para o histórico de preços
 
 
 def _get(url, timeout=60, binario=False):
@@ -79,7 +80,7 @@ def _sem_desdobramentos(serie):
         r = out[i][2] / out[i - 1][2]
         fator = r if r >= 1 else 1 / r
         # Desdobramento/grupamento: salto grande e próximo de uma razão "redonda" (2, 3, 4, 5, 10...)
-        if fator >= 1.8 and any(abs(fator / k - 1) < 0.1 for k in (2, 3, 4, 5, 8, 10, 20, 50, 100)):
+        if fator >= 1.6 and any(abs(fator / k - 1) < 0.12 for k in (2, 3, 4, 5, 8, 10, 20, 50, 100)):
             for j in range(i):
                 out[j][1] *= r
                 out[j][2] *= r
@@ -299,14 +300,6 @@ def lucros_cvm(anos):
     return out
 
 
-def numero_de_acoes(t):
-    html = _get(f"https://www.fundamentus.com.br/detalhes.php?papel={t}", 30)
-    m = re.search(r"Nro\. A\S{1,6}es</span>.*?<span class=\"txt\">([\d.]+)<", html, re.S)
-    if not m:
-        raise RuntimeError("nº de ações não encontrado")
-    return int(m.group(1).replace(".", ""))
-
-
 # ---------- Montagem ----------
 
 def atualizar(mercado, anterior, limite_precos=170, validade_dias=7):
@@ -339,7 +332,7 @@ def atualizar(mercado, anterior, limite_precos=170, validade_dias=7):
 
     # Ativos da B3: arquivo oficial de uma vez, renovado uma vez por semana
     b3 = [t for t, simbolo, _ in lista if simbolo.endswith(".SA")]
-    if any(idade(t) >= validade_dias for t in b3):
+    if anterior.get("precosVersao") != VERSAO_PRECOS or any(idade(t) >= validade_dias for t in b3):
         try:
             series = precos_b3_lote(b3, hoje)
             for t, serie in series.items():
@@ -391,25 +384,21 @@ def atualizar(mercado, anterior, limite_precos=170, validade_dias=7):
         except Exception as e:
             print(f"ERRO em lucros CVM: {e}", file=sys.stderr)
 
-    # Nº de ações (para o P/L histórico): renova a cada 30 dias, no máximo 120 por execução
-    pend = [t for t in ativos if t in acoes and ativos[t].get("lucros") and idade(t, "acoesEm") >= 30][:120]
-    for t in pend:
-        try:
-            ativos[t]["nAcoes"] = numero_de_acoes(t)
-            ativos[t]["acoesEm"] = hoje.isoformat()
-        except Exception as e:
-            print(f"aviso: nº de ações {t}: {e}", file=sys.stderr)
-        time.sleep(0.25)
-
-    # P/L de cada ano = preço médio do ano x nº de ações / lucro do ano
+    # P/L de cada ano, calibrado pelo P/L atual da Fundamentus (dispensa o nº de ações):
+    # P/L(ano) = P/L(hoje) x preço médio do ano / preço de hoje x lucro do último ano / lucro do ano
     for t, item in ativos.items():
-        l, pa, n = item.get("lucros"), item.get("precoAno"), item.get("nAcoes")
-        if not (l and pa and n):
+        l, pa, d = item.get("lucros"), item.get("precoAno"), acoes.get(t) or {}
+        item.pop("nAcoes", None)
+        item.pop("acoesEm", None)
+        if not (l and pa and (d.get("pl") or 0) > 0 and d.get("preco")):
+            item.pop("pl", None)
+            item.pop("plMed", None)
             continue
+        ultimo = l[max(l)]
         pl = {}
         for ano, lucro in l.items():
-            if ano in pa and lucro:
-                pl[ano] = round(pa[ano] * n / (lucro * 1e6), 1) if lucro > 0 else None
+            if ano in pa and lucro and ultimo > 0:
+                pl[ano] = round(d["pl"] * pa[ano] / d["preco"] * ultimo / lucro, 1) if lucro > 0 else None
         item["pl"] = pl
         validos = [v for v in pl.values() if v and 0 < v < 200]
         if len(validos) >= 3:
@@ -419,4 +408,4 @@ def atualizar(mercado, anterior, limite_precos=170, validade_dias=7):
 
     exemplo = {t: (ativos.get(t, {}).get("plMed"), acoes.get(t, {}).get("pl")) for t in ("WEGE3", "ITUB4", "VALE3", "PETR4", "VIVT3") if t in ativos}
     print(f"P/L médio 5 anos vs atual (conferência): {exemplo}")
-    return {"atualizadoEm": datetime.now(timezone.utc).isoformat(timespec="seconds"), "lucrosEm": lucros_em, "lucrosVersao": VERSAO_LUCROS, "ativos": ativos}
+    return {"atualizadoEm": datetime.now(timezone.utc).isoformat(timespec="seconds"), "lucrosEm": lucros_em, "lucrosVersao": VERSAO_LUCROS, "precosVersao": VERSAO_PRECOS, "ativos": ativos}

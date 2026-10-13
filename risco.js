@@ -31,7 +31,8 @@ const PROXY_CLASSE = { acoes: 'BOVA11', fiis: 'XFIX11', inter: 'VT', cripto: 'BT
 
 function retornosMensais(precos, meses) {
   const r = [];
-  for (let i = 1; i < meses.length; i++) r.push(precos.get(meses[i]) / precos.get(meses[i - 1]) - 1);
+  // Limita saltos extremos de um mês (quase sempre desdobramento não ajustado na fonte)
+  for (let i = 1; i < meses.length; i++) r.push(Math.max(-0.5, Math.min(1, precos.get(meses[i]) / precos.get(meses[i - 1]) - 1)));
   return r;
 }
 
