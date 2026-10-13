@@ -1,6 +1,6 @@
 """Histórico de 5 anos para comparar cada ativo com o próprio passado e medir risco.
 
-- Preços mensais (Fundamentus para ações e FIIs, Nasdaq para ETFs americanos, Banco Central para o
+- Preços mensais (arquivos oficiais COTAHIST da B3 para ações, FIIs e ETFs, Nasdaq para ETFs americanos, Banco Central para o
   dólar, Kraken para o bitcoin; Yahoo como reserva): volatilidade,
   maior queda e correlação entre os ativos da carteira (calculadas no site).
 - Lucro líquido anual (dados abertos da CVM, demonstrações anuais DFP): anos com prejuízo,
@@ -84,6 +84,54 @@ def _sem_desdobramentos(serie):
                 out[j][1] *= r
                 out[j][2] *= r
     return [tuple(x) for x in out]
+
+
+def precos_b3_lote(tickers, hoje):
+    """Arquivos oficiais da B3 (COTAHIST, um por ano, todos os pregões e papéis).
+    Devolve {ticker: [(mês, último preço do mês, mesmo preço)]} dos últimos 5 anos."""
+    alvo = set(tickers)
+    ultimo = {}  # (ticker, mês) -> (data, preço)
+    for ano in range(hoje.year - 5, hoje.year + 1):
+        conteudo = None
+        for url in (f"https://bvmf.bmfbovespa.com.br/InstDados/SerHist/COTAHIST_A{ano}.ZIP",
+                    f"https://www.b3.com.br/pesquisapregao/download?filelist=COTAHIST_A{ano}.ZIP"):
+            try:
+                conteudo = _get(url, 300, True)
+                z = zipfile.ZipFile(io.BytesIO(conteudo))
+                interno = [n for n in z.namelist() if n.upper().endswith(".ZIP")]
+                if interno:  # o segundo endereço embrulha o zip dentro de outro
+                    z = zipfile.ZipFile(io.BytesIO(z.read(interno[0])))
+                break
+            except Exception as e:
+                print(f"aviso: COTAHIST {ano} ({url[:40]}...): {e}", file=sys.stderr)
+                z = None
+        if z is None:
+            continue
+        n = 0
+        with z.open(z.namelist()[0]) as f:
+            for linha in io.TextIOWrapper(f, encoding="latin-1"):
+                if not linha.startswith("01") or linha[24:27] != "010":
+                    continue
+                t = linha[12:24].strip()
+                if t not in alvo:
+                    continue
+                data = linha[2:10]
+                preco = int(linha[108:121]) / 100 / max(1, int(linha[210:217] or 1))
+                chave = (t, f"{data[:4]}-{data[4:6]}")
+                if chave not in ultimo or data > ultimo[chave][0]:
+                    ultimo[chave] = (data, preco)
+                n += 1
+        print(f"COTAHIST {ano}: {n} pregões lidos")
+    por_t = {}
+    for (t, mes), (_, p) in ultimo.items():
+        por_t.setdefault(t, []).append((mes, p, p))
+    out = {}
+    for t, serie in por_t.items():
+        serie.sort()
+        serie = serie[-61:]
+        if len(serie) >= 12:
+            out[t] = _sem_desdobramentos(_meses_seguidos(serie))
+    return out
 
 
 def precos_fundamentus(t):
@@ -279,7 +327,29 @@ def atualizar(mercado, anterior, limite_precos=170, validade_dias=7):
     lista += [(t, f"{t}.SA", 1e9) for t in (mercado.get("etfs") or {})]
     lista += [(t, t, 1e9) for t in (mercado.get("etfsEUA") or {})]
     lista += [("USDBRL", "BRL=X", 1e9), ("BTC", "BTC-USD", 1e9)]  # dólar (converte ativos americanos) e bitcoin
-    fila = sorted((x for x in lista if idade(x[0]) >= validade_dias), key=lambda x: (-idade(x[0]), -x[2]))[:limite_precos]
+    def guardar(t, serie):
+        item = ativos.get(t, {})
+        item.update({"em": hoje.isoformat(), "m0": serie[0][0], "m": [sig(a) for _, _, a in serie]})
+        # Preço médio de cada ano (fechamentos mensais, sem ajuste por proventos), para o P/L histórico
+        por_ano = {}
+        for mes, c, _ in serie:
+            por_ano.setdefault(mes[:4], []).append(c)
+        item["precoAno"] = {a: sig(sum(v) / len(v)) for a, v in por_ano.items() if len(v) >= 6}
+        ativos[t] = item
+
+    # Ativos da B3: arquivo oficial de uma vez, renovado uma vez por semana
+    b3 = [t for t, simbolo, _ in lista if simbolo.endswith(".SA")]
+    if any(idade(t) >= validade_dias for t in b3):
+        try:
+            series = precos_b3_lote(b3, hoje)
+            for t, serie in series.items():
+                guardar(t, serie)
+            print(f"histórico B3: {len(series)} de {len(b3)} ativos")
+        except Exception as e:
+            print(f"ERRO em COTAHIST: {e}", file=sys.stderr)
+
+    outros = [x for x in lista if not x[1].endswith(".SA")]
+    fila = sorted((x for x in outros if idade(x[0]) >= validade_dias), key=lambda x: (-idade(x[0]), -x[2]))[:limite_precos]
 
     erros = 0
     for t, simbolo, _ in fila:
@@ -295,15 +365,8 @@ def atualizar(mercado, anterior, limite_precos=170, validade_dias=7):
             continue
         finally:
             time.sleep(0.3)
-        item = ativos.get(t, {})
-        item.update({"em": hoje.isoformat(), "m0": serie[0][0], "m": [sig(a) for _, _, a in serie]})
-        # Preço médio de cada ano (sem ajuste por proventos), para o P/L histórico
-        por_ano = {}
-        for mes, c, _ in serie:
-            por_ano.setdefault(mes[:4], []).append(c)
-        item["precoAno"] = {a: sig(sum(v) / len(v)) for a, v in por_ano.items() if len(v) >= 6}
-        ativos[t] = item
-    print(f"histórico de preços: {len(ativos)} ativos ({len(fila) - erros} atualizados agora, {erros} erros)")
+        guardar(t, serie)
+    print(f"histórico de preços fora da B3: {len(fila) - erros} atualizados agora, {erros} erros")
 
     # Lucros da CVM: renova uma vez por mês
     lucros_em = anterior.get("lucrosEm")
