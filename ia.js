@@ -30,6 +30,7 @@ function dadosParaIA(aporte) {
     proventos12m: r2(prov12),
     aporteDoMes: aporte || null,
     notaAderencia: dg.nota,
+    ajusteMetasPeloCenario: modoCenario(),
     meta: estado.meta || null,
     risco: (() => {
       const r = typeof analisarRisco === 'function' ? analisarRisco() : null;

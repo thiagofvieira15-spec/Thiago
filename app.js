@@ -191,12 +191,14 @@ function sinaisCenario(cx = cenario()) {
 
   if (jurosReal >= 6) {
     sinais.push({
+      preco: true,
       titulo: `Juro real muito alto (~${pct(jurosReal)} ao ano)`,
       texto: 'A renda fixa paga muito acima da inflação, então o prêmio para correr risco na bolsa fica menor. Faz sentido reforçar a renda fixa e ser seletivo em ações.',
       efeitos: { rf_pos: 3, rf_ipca: 2, acoes: -3, fiis: -2 },
     });
   } else if (jurosReal <= 3) {
     sinais.push({
+      preco: true,
       titulo: `Juro real baixo (~${pct(jurosReal)} ao ano)`,
       texto: 'Com renda fixa pagando pouco acima da inflação, ativos reais como ações e FIIs ficam relativamente mais atrativos.',
       efeitos: { rf_pos: -4, acoes: 2, fiis: 2 },
@@ -205,6 +207,7 @@ function sinaisCenario(cx = cenario()) {
 
   if (cx.taxaIpcaLongo >= 6) {
     sinais.push({
+      preco: true,
       titulo: `Tesouro IPCA+ pagando ~${pct(cx.taxaIpcaLongo)} acima da inflação`,
       texto: 'Taxas reais raramente ficam neste nível. É uma oportunidade de travar juro real alto por vários anos, levando o título até o vencimento.',
       efeitos: { rf_ipca: 3, rf_pos: -3 },
@@ -235,12 +238,14 @@ function sinaisCenario(cx = cenario()) {
 
   if (cx.dolar < cx.dolarFocusFimAno * 0.97) {
     sinais.push({
+      preco: true,
       titulo: `Dólar abaixo do esperado (${fmt(cx.dolar)} hoje contra ${fmt(cx.dolarFocusFimAno)} previsto)`,
       texto: 'Momento favorável para aumentar a exposição internacional e dolarizar parte do patrimônio, como proteção contra riscos locais.',
       efeitos: { inter: 3, rf_pos: -3 },
     });
   } else if (cx.dolar > cx.dolarFocusFimAno * 1.05) {
     sinais.push({
+      preco: true,
       titulo: `Dólar acima do esperado (${fmt(cx.dolar)})`,
       texto: 'Com o dólar caro, evite acelerar compras internacionais. Prefira aportes graduais.',
       efeitos: { inter: -2, rf_pos: 2 },
@@ -288,10 +293,21 @@ function sinaisCenario(cx = cenario()) {
   return { sinais, jurosReal };
 }
 
-// Aplica as inclinações à alocação-base, limitando a ±8 pontos por classe
+// Quanto o cenário mexe nas metas: desligado (metas fixas), leve (só sinais de preço, até ±3) ou normal (todos, até ±8)
+const MODOS_CENARIO = {
+  desligado: { nome: 'Desligado', desc: 'Usa só a sua alocação-base. Você rebalanceia pelos aportes, sem tentar prever o mercado.', limite: 0 },
+  leve: { nome: 'Leve', desc: 'Só os sinais de preço (juro real, taxa do Tesouro IPCA+ e dólar), com no máximo 3 pontos de ajuste por classe.', limite: 3 },
+  normal: { nome: 'Normal', desc: 'Todos os sinais do cenário (juros, inflação, dólar, eleição, EUA, geopolítica), com até 8 pontos de ajuste por classe.', limite: 8 },
+};
+const modoCenario = () => (MODOS_CENARIO[estado.modoCenario] ? estado.modoCenario : 'desligado');
+const rotuloMeta = (curto) => (modoCenario() === 'desligado' ? 'Meta' : curto ? 'Meta no cenário' : 'Meta ajustada ao cenário');
+
+// Aplica as inclinações à alocação-base, conforme o modo escolhido no Perfil
 function alvoAjustado() {
   if (!estado.alvo) return null;
-  const { sinais } = sinaisCenario();
+  const modo = modoCenario();
+  const limite = MODOS_CENARIO[modo].limite;
+  const sinais = modo === 'desligado' ? [] : sinaisCenario().sinais.filter((x) => modo === 'normal' || x.preco);
   const base = {};
   const s = somaAlvo() || 100;
   for (const c of CLASSES) base[c.id] = ((estado.alvo[c.id] || 0) / s) * 100;
@@ -301,7 +317,7 @@ function alvoAjustado() {
 
   const bruto = {};
   for (const c of CLASSES) {
-    const i = Math.max(-8, Math.min(8, incl[c.id]));
+    const i = Math.max(-limite, Math.min(limite, incl[c.id]));
     // Classe zerada pelo perfil continua zerada; o cenário reduz, mas não elimina, uma classe do perfil
     bruto[c.id] = base[c.id] === 0 ? 0 : Math.max(base[c.id] * 0.4, base[c.id] + i);
   }
@@ -632,7 +648,18 @@ function renderPerfil() {
       <input type="number" min="0" max="100" step="1" data-classe="${c.id}" value="${alvo[c.id] ?? ''}" ${estado.alvo ? '' : 'disabled'}>
     </label>`).join('');
   atualizarSoma();
+  const modo = modoCenario();
+  $('#modo-cenario').innerHTML = Object.entries(MODOS_CENARIO).map(([k, m]) => `
+    <label class="check"><input type="radio" name="modo-cenario" value="${k}" ${k === modo ? 'checked' : ''}>
+      <span><strong>${m.nome}</strong>${k === 'desligado' ? ' (recomendado)' : ''}<br><span class="motivo">${m.desc}</span></span></label>`).join('');
 }
+
+$('#modo-cenario').addEventListener('change', (e) => {
+  if (e.target.name !== 'modo-cenario') return;
+  estado.modoCenario = e.target.value;
+  salvar();
+  renderTudo();
+});
 
 $('#resultado-perfil').addEventListener('click', (e) => {
   const b = e.target.closest('#subir-perfil');
@@ -693,13 +720,14 @@ function renderCenario() {
     </div>
     <div class="card">
       <h2>Como o cenário afeta a alocação</h2>
+      <p class="dica" style="margin-top:0">Ajuste pelo cenário: <strong>${MODOS_CENARIO[modoCenario()].nome}</strong>. ${modoCenario() === 'desligado' ? 'Os sinais abaixo são só informativos: suas metas não mudam.' : modoCenario() === 'leve' ? 'Só os sinais de preço (marcados) mexem nas metas.' : ''} Mude em <a href="#" data-ir="perfil">Perfil</a>.</p>
       ${sinais.length ? sinais.map(renderSinal).join('') : '<p>Nenhum sinal relevante. A alocação-base do perfil é mantida.</p>'}
     </div>
     ${aj ? `
     <div class="card">
-      <h2>Alocação do perfil × ajustada ao cenário</h2>
+      <h2>Alocação do perfil × ${rotuloMeta(true).toLowerCase()}</h2>
       <div class="tabela-wrap"><table>
-        <thead><tr><th>Classe</th><th class="num">Base do perfil</th><th class="num">Ajuste</th><th class="num">Meta no cenário</th></tr></thead>
+        <thead><tr><th>Classe</th><th class="num">Base do perfil</th><th class="num">Ajuste</th><th class="num">${rotuloMeta(true)}</th></tr></thead>
         <tbody>${CLASSES.map((c) => {
           const d = aj.final[c.id] - aj.base[c.id];
           return `<tr><td><span style="color:${c.cor}">●</span> ${c.nome}</td>
@@ -716,7 +744,7 @@ function renderCenario() {
 
 function renderSinal(s) {
   return `<div class="sinal">
-    <div class="titulo">${esc(s.titulo)}</div>
+    <div class="titulo">${esc(s.titulo)}${s.preco ? ' <span class="tag manter">sinal de preço</span>' : ''}</div>
     <div class="motivo">${esc(s.texto)}</div>
     <div class="efeitos">${Object.entries(s.efeitos).map(([k, v]) =>
       `<span class="chip ${v > 0 ? 'mais' : 'menos'}">${classe(k).curto} ${v > 0 ? '+' : ''}${v}</span>`).join('')}</div>
@@ -893,7 +921,7 @@ function renderDiagnostico() {
         <h2>Nota da carteira</h2>
         <div class="nota">${nota}<small> / 100</small></div>
         <p>${textoNota(nota)}</p>
-        <p class="dica">Perfil ${PERFIS[estado.perfil].nome}, cenário de ${dataBR(cx.dataReferencia)}. A nota mede a proximidade da carteira (${fmt(total)}) com a meta ajustada ao cenário.</p>
+        <p class="dica">Perfil ${PERFIS[estado.perfil].nome}, cenário de ${dataBR(cx.dataReferencia)}. A nota mede a proximidade da carteira (${fmt(total)}) com a ${rotuloMeta().toLowerCase()}.</p>
       </div>
       <div class="card">
         <h2>Leitura do cenário</h2>
@@ -905,7 +933,7 @@ function renderDiagnostico() {
     ${alertas.length ? `<div class="card"><h2>Pontos de atenção</h2>${alertas.map((a) => `<div class="alerta">${esc(a)}</div>`).join('')}</div>` : ''}
 
     <div class="card">
-      <h2>Alocação atual × meta no cenário</h2>
+      <h2>Alocação atual × ${rotuloMeta(true).toLowerCase()}</h2>
       <div class="barras">
         ${linhas.filter((l) => l.atual > 0 || l.meta > 0).map((l) => `
           <div class="barra-linha">
@@ -920,7 +948,7 @@ function renderDiagnostico() {
             </div>
           </div>`).join('')}
       </div>
-      <p class="dica">A barra mostra o percentual atual. O traço vertical marca a meta ajustada ao cenário.</p>
+      <p class="dica">A barra mostra o percentual atual. O traço vertical marca a ${rotuloMeta().toLowerCase()}.</p>
     </div>
 
     <div class="card">
@@ -997,7 +1025,7 @@ function gerarPlano(aporte, permitirVendas, tol, reserva = 0) {
           const disp = valorAtivo(a) - (vendas.get(a.id)?.valor || 0);
           // Distribui proporcionalmente ao tamanho de cada posição
           const parte = Math.min(disp, (disp / restante) * excesso);
-          addVenda(a, parte, `${c.curto} acima da meta no cenário.`);
+          addVenda(a, parte, `${c.curto} acima da ${rotuloMeta(true).toLowerCase()}.`);
           falta -= parte;
         }
       }
@@ -1028,22 +1056,60 @@ function gerarPlano(aporte, permitirVendas, tol, reserva = 0) {
   return { vendas: [...vendas.values()].sort((x, y) => y.valor - x.valor), totalVendas, caixa, compras, final, novoTotal, meta };
 }
 
-// Dentro da classe, direciona o dinheiro para os ativos menores, buscando pesos iguais.
-// Ativos que estão sendo vendidos não recebem compras.
+// Filtro de qualidade para receber aporte: nota de pelo menos 6 e, em ações, preço até 33% acima do maior preço-teto.
+// Devolve o motivo quando o ativo fica de fora.
+const NOTA_MINIMA_APORTE = 6;
+function motivoSemAporte(a) {
+  const av = avaliarFundamentos(a);
+  if (av.nota != null && av.nota < NOTA_MINIMA_APORTE) return `nota ${f1(av.nota)}/10`;
+  if (tipoAtivo(a) === 'acao') {
+    const v = valuation(a);
+    const teto = tetoMaior(v);
+    if (teto && v.p > teto * 1.33) return `preço ${f1((v.p / teto - 1) * 100)}% acima do preço-teto`;
+  }
+  return null;
+}
+
+// Dentro da classe, direciona o dinheiro para os ativos menores, buscando pesos iguais,
+// só entre os que passam no filtro de qualidade. Ativos que estão sendo vendidos não recebem compras.
 function distribuirNaClasse(classeId, valor, vendas) {
   // Em renda fixa o que importa é o tipo de título, não igualar posições: sugere opções da classe
   if (classe(classeId).rendaFixa) return [];
   let ativos = investidos().filter((a) => a.classe === classeId && !vendas.has(a.id));
-  // Ativos com fundamentos fracos não recebem aportes quando há alternativas na classe
-  const saudaveis = ativos.filter((a) => avaliarFundamentos(a).nivel !== 'fraco');
-  if (saudaveis.length) ativos = saudaveis;
-  if (!ativos.length || valor <= 0) return [];
+  const excluidos = [];
+  const aprovados = ativos.filter((a) => {
+    const m = motivoSemAporte(a);
+    if (m) excluidos.push({ a, motivo: m });
+    return !m;
+  });
+  // Se ninguém passar no filtro, ao menos evita os de fundamentos fracos
+  if (aprovados.length) ativos = aprovados;
+  else {
+    excluidos.length = 0;
+    const saudaveis = ativos.filter((a) => avaliarFundamentos(a).nivel !== 'fraco');
+    if (saudaveis.length) ativos = saudaveis;
+  }
+  if (!ativos.length || valor <= 0) return Object.assign([], { excluidos });
   const atuais = ativos.map((a) => ({ a, v: valorAtivo(a), add: 0 }));
+  const totalClasse0 = atuais.reduce((s, x) => s + x.v, 0);
+  atuais.forEach((x) => { x.pesoAntes = totalClasse0 ? (x.v / totalClasse0) * 100 : 0; });
+  // Ações e FIIs da B3: compra cota inteira, sempre no ativo com menor posição no momento
+  if (atuais.every((x) => TICKER_B3.test(x.a.nome) && preco(x.a) > 0)) {
+    let caixa = valor;
+    for (;;) {
+      const cabe = atuais.filter((x) => preco(x.a) <= caixa);
+      if (!cabe.length) break;
+      const menor = cabe.reduce((m, x) => (x.v + x.add < m.v + m.add ? x : m));
+      menor.add += preco(menor.a);
+      caixa -= preco(menor.a);
+    }
+    return Object.assign(atuais.filter((x) => x.add > 0).sort((p, q) => q.add - p.add), { excluidos, sobra: caixa });
+  }
   const alvoIgual = (atuais.reduce((s, x) => s + x.v, 0) + valor) / atuais.length;
   const faltas = atuais.map((x) => Math.max(0, alvoIgual - x.v));
   const somaF = faltas.reduce((s, f) => s + f, 0);
   atuais.forEach((x, i) => { x.add = somaF > 0 ? (faltas[i] / somaF) * valor : valor / atuais.length; });
-  return atuais.filter((x) => x.add >= 1).sort((p, q) => q.add - p.add);
+  return Object.assign(atuais.filter((x) => x.add >= 1).sort((p, q) => q.add - p.add), { excluidos });
 }
 
 function notaIR(a) {
@@ -1118,12 +1184,14 @@ $('#form-plano').addEventListener('submit', (e) => {
         ${cp.ativos.length ? `<div class="tabela-wrap"><table>
           <thead><tr><th>Ativo</th><th class="num">Valor</th><th class="num">Preço atual</th><th class="num">Qtd aprox.</th></tr></thead>
           <tbody>${cp.ativos.map((x) => `<tr>
-            <td>${esc(x.a.nome)}</td>
+            <td>${esc(x.a.nome)}<br><span class="motivo">${f1(x.pesoAntes)}% da classe hoje</span></td>
             <td class="num">${fmt(x.add)}</td>
             <td class="num">${fmt(preco(x.a))}</td>
-            <td class="num">${cp.c.rendaFixa ? '—' : num(Math.floor(x.add / preco(x.a)))}</td>
+            <td class="num">${cp.c.rendaFixa ? '—' : TICKER_B3.test(x.a.nome) ? num(Math.round(x.add / preco(x.a))) : f2(x.add / preco(x.a))}</td>
           </tr>`).join('')}</tbody>
         </table></div>
+        ${cp.ativos.sobra >= 1 ? `<p class="dica">Sobram ${fmt(cp.ativos.sobra)} (não completam uma cota): deixe na renda fixa pós e use no próximo aporte.</p>` : ''}
+        ${cp.ativos.excluidos?.length ? `<p class="dica">Sem aporte agora: ${cp.ativos.excluidos.map((x) => `${esc(x.a.nome)} (${esc(x.motivo)})`).join(', ')}.</p>` : ''}
         <p class="dica">Ou diversifique com: ${CATALOGO[cp.c.id].map((i) => esc(i[0])).join(' · ')}</p>`
         : `<p class="dica">${cp.c.rendaFixa ? 'Escolha o título com a melhor taxa disponível na sua corretora. Opções:' : 'Você não tem ativos nesta classe. Opções:'}</p>
           ${CATALOGO[cp.c.id].map(([n, d]) => `<div class="sugestao"><strong>${esc(n)}</strong><span class="motivo">${esc(d)}</span></div>`).join('')}`}
@@ -1133,7 +1201,7 @@ $('#form-plano').addEventListener('submit', (e) => {
     <div class="card">
       <h2>Resultado após o plano</h2>
       <div class="tabela-wrap"><table>
-        <thead><tr><th>Classe</th><th class="num">Hoje</th><th class="num">Depois</th><th class="num">Meta no cenário</th></tr></thead>
+        <thead><tr><th>Classe</th><th class="num">Hoje</th><th class="num">Depois</th><th class="num">${rotuloMeta(true)}</th></tr></thead>
         <tbody>${CLASSES.filter((c) => porClasse[c.id] > 0 || p.meta[c.id] > 0).map((c) => `<tr>
           <td><span style="color:${c.cor}">●</span> ${c.nome}</td>
           <td class="num">${pct(total ? (porClasse[c.id] / total) * 100 : 0)}</td>

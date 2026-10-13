@@ -59,7 +59,7 @@
           </label>
           <div class="acoes-form"><button class="btn" type="submit">Gerar plano</button></div>
         </form>
-        <p class="dica">Sem vendas, o aporte vai para as classes mais abaixo da meta ajustada ao cenário. Com vendas, também são indicados ativos para reduzir ou vender: concentrações excessivas e classes muito acima da meta.</p>
+        <p class="dica">Sem vendas, o aporte vai para as classes mais abaixo da meta e, dentro de cada classe, para os ativos com menor peso que tenham boa nota (pesos iguais). Com vendas, também são indicados ativos para reduzir ou vender: concentrações excessivas e classes muito acima da meta.</p>
       </div>
       <div id="resultado-plano"></div>
     </section>
@@ -194,6 +194,11 @@
         <p class="dica">Ponto de partida antes do ajuste ao cenário. Você pode alterar os percentuais; a soma precisa dar 100%.</p>
         <form id="form-alvo" class="grade-form"></form>
         <p id="soma-alvo" class="soma"></p>
+      </div>
+      <div class="card">
+        <h2>Ajustar metas pelo cenário</h2>
+        <p class="dica" style="margin-top:0">Quanto o cenário econômico pode mexer na sua alocação-base. Com metas fixas, você só rebalanceia: o aporte vai para o que ficou abaixo da meta.</p>
+        <div id="modo-cenario" class="lista-opcoes"></div>
       </div>
     </section>
   </main>
