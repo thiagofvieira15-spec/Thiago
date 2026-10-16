@@ -209,6 +209,7 @@ function renderAcompanhamento() {
   renderAvisos();
   renderPlacar();
   if (typeof renderMetas === 'function') renderMetas();
+  if (typeof renderRenda === 'function') renderRenda();
 }
 
 renderAcompanhamento();

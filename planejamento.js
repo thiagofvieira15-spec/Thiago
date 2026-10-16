@@ -31,6 +31,7 @@ function eventosDoMes(mes) {
 
 // Aporte no longo prazo em um mês, conforme Metas e projeção (aporte de hoje + mudanças por ano)
 function aporteLongoNoMes(mes) {
+  if (typeof fasesRenda === 'function' && fasesRenda().length) return aporteLongoFase(mes);
   const m = estado.meta || {};
   let v = m.aporte || 0;
   const ano = +mes.slice(0, 4);
@@ -57,13 +58,19 @@ function renderCronograma() {
   const anoHoje = new Date().getFullYear();
   const anos = [];
   const ultimoObj = objetivos().reduce((x, o) => Math.max(x, +o.data.slice(0, 4)), anoHoje);
-  const fim = Math.max(anoHoje + (m.anos || 0), ultimoObj, ...(estado.marcos || []).map((x) => +x.data.slice(0, 4)), ...vencimentos().map((v) => +v.mes.slice(0, 4)));
+  const fim = Math.max(anoHoje + (m.anos || 0), ultimoObj, ...(estado.marcos || []).map((x) => +x.data.slice(0, 4)), ...vencimentos().map((v) => +v.mes.slice(0, 4)), ...(typeof fasesRenda === 'function' ? fasesRenda().map((f) => +f.inicio.slice(0, 4)) : []));
   for (let y = anoHoje + 1; y <= fim; y++) {
     const ev = [];
     for (let k = 1; k <= 12; k++) ev.push(...eventosDoMes(`${y}-${String(k).padStart(2, '0')}`).map((e) => ({ ...e, mes: k })));
     for (const r of (typeof lerFases === 'function' ? lerFases(m.retiradas) : [])) if (r.ano === y) ev.push({ tipo: 'vender', texto: `Retirada planejada do longo prazo: ${fmt(r.valor)}`, mes: 1 });
-    const mudou = (typeof lerFases === 'function' ? lerFases(m.fases) : []).find((f) => f.ano === y);
-    if (mudou) ev.unshift({ tipo: 'comprar', texto: `Aporte no longo prazo passa a ${fmt(mudou.valor)}/mês`, mes: 1 });
+    if (typeof fasesRenda === 'function' && fasesRenda().length) {
+      for (const f of fasesRenda().filter((x) => +x.inicio.slice(0, 4) === y).reverse()) {
+        ev.unshift({ tipo: 'comprar', texto: `${f.nome ? `${f.nome}: ` : ''}salário ${fmt(f.salario)}${f.aluguel ? `, aluguel ${fmt(f.aluguel)}` : ''}; longo prazo passa a ${fmt(aporteLongoFase(f.inicio))}/mês`, mes: +f.inicio.slice(5) });
+      }
+    } else {
+      const mudou = (typeof lerFases === 'function' ? lerFases(m.fases) : []).find((f) => f.ano === y);
+      if (mudou) ev.unshift({ tipo: 'comprar', texto: `Aporte no longo prazo passa a ${fmt(mudou.valor)}/mês`, mes: 1 });
+    }
     const proj = curva?.[y - anoHoje];
     // Anos sem evento só aparecem de 5 em 5 (e o último), para acompanhar o patrimônio
     if (ev.length || (proj && ((y - anoHoje) % 5 === 0 || y === fim))) anos.push({ y, ev, proj });
@@ -82,7 +89,7 @@ function renderCronograma() {
           <td class="motivo">${ev.map((e) => `<div><span class="tag ${e.tipo}" style="font-size:0.65rem">•</span> ${esc(e.texto)}</div>`).join('') || ''}</td></tr>`;
       }).join('')}</tbody>
     </table></div>
-    <p class="dica">Objetivos vêm de Carteira → Objetivos; o aporte do longo prazo, de Evolução → Metas e projeção (aporte de hoje e mudanças por ano). Os proventos são reinvestidos à parte.</p>
+    <p class="dica">Objetivos vêm de Carteira → Objetivos; o aporte do longo prazo, de Evolução → Renda e despesas por fase (ou do aporte de Metas e projeção). Os proventos são reinvestidos à parte.</p>
   </div>
 
   <div class="card">

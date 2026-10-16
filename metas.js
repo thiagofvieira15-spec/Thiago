@@ -66,7 +66,8 @@ function simular(inicial, aporte, anos, caminhos = 1500) {
   const meses = Math.round(anos * 12);
   const m0 = estado.meta || {};
   // aporte pode ser um número (extra sobre o cronograma) ou o cronograma completo
-  const cron = aportesPorMes(m0.aporte || 0, meses, lerFases(m0.fases));
+  // Com fases de renda cadastradas, o aporte de cada mês sai delas; senão, do aporte de hoje + mudanças por ano
+  const cron = (typeof cronogramaFases === 'function' && cronogramaFases(meses)) || aportesPorMes(m0.aporte || 0, meses, lerFases(m0.fases));
   const ano0 = new Date().getFullYear(), mes0 = new Date().getMonth();
   const retiradas = lerFases(m0.retiradas);
   const saidaNoMes = Array.from({ length: meses }, (_, i) => {
@@ -93,7 +94,7 @@ function simular(inicial, aporte, anos, caminhos = 1500) {
 function aporteNecessario(inicial, meta, anos, chance) {
   let lo = 0, hi = Math.max(meta / (anos * 12), 100);
   // Sem fases, procura o aporte mensal total; com fases da carreira, o extra sobre o cronograma
-  const semFases = !lerFases(estado.meta?.fases).length;
+  const semFases = !lerFases(estado.meta?.fases).length && !(typeof fasesRenda === 'function' && fasesRenda().length);
   const salvo = estado.meta?.aporte;
   const ok = (ap) => {
     if (semFases && estado.meta) estado.meta.aporte = 0;
@@ -124,7 +125,7 @@ function renderMetas() {
       <div class="resumo">
         <div class="kpi"><div class="rotulo">Chance de chegar lá</div><div class="valor ${chance >= 70 ? 'pos' : chance < 40 ? 'neg' : ''}">${f1(chance)}%</div><div class="motivo">${chance >= 80 ? 'no caminho certo' : chance >= 50 ? 'possível, mas sem folga' : 'precisa de ajuste'}</div></div>
         <div class="kpi"><div class="rotulo">Cenário mediano em ${m.anos} anos</div><div class="valor">${reais0(fim.p50)}</div><div class="motivo">você terá aplicado ${reais0(investido)}</div></div>
-        <div class="kpi"><div class="rotulo">${lerFases(m.fases).length ? 'Aporte extra para 80% de chance' : 'Aporte para 80% de chance'}</div><div class="valor">${reais0(lerFases(m.fases).length ? ap80 : ap80 + 0)}</div><div class="motivo">por mês${lerFases(m.fases).length ? ', além do cronograma' : ''} · para 50%: ${reais0(ap50)}</div></div>
+        ${(() => { const cron = lerFases(m.fases).length || (typeof fasesRenda === 'function' && fasesRenda().length); return `<div class="kpi"><div class="rotulo">${cron ? 'Aporte extra para 80% de chance' : 'Aporte para 80% de chance'}</div><div class="valor">${reais0(ap80)}</div><div class="motivo">por mês${cron ? ', além do cronograma' : ''} · para 50%: ${reais0(ap50)}</div></div>`; })()}
       </div>
       <div class="viz-caixa" id="metas-grafico"></div>
       <div class="viz-legenda"><span><span class="viz-amostra" style="background:var(--serie-1)"></span>Mediano</span><span><span class="viz-amostra" style="background:var(--serie-2)"></span>Pessimista (1 em 10 fica abaixo)</span></div>
