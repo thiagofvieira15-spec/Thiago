@@ -186,3 +186,6 @@ code { background: var(--bg); padding: 1px 4px; border-radius: 4px; }
 .avisos ul.pontos li { align-items: flex-start; }
 .lista-opcoes { display: flex; flex-direction: column; gap: 10px; }
 .lista-opcoes label.check { align-items: flex-start; }
+.selo { display: inline-block; min-width: 18px; padding: 0 5px; border-radius: 999px; background: var(--negativo); color: #fff; font-size: 0.7rem; line-height: 18px; text-align: center; margin-left: 4px; }
+ul.pontos li input[type=checkbox] { margin-top: 3px; }
+ul.pontos li .btn.mini { align-self: flex-start; margin-left: auto; }

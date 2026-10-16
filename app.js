@@ -348,6 +348,7 @@ function abrirAba(id) {
   if (id === 'diagnostico') renderDiagnostico();
   if (id === 'cenario') renderCenario();
   if (id === 'analise') renderAnalise();
+  if (id === 'rotina' && typeof renderRotina === 'function') renderRotina();
   if (id === 'evolucao' && typeof renderEvolucao === 'function') renderEvolucao();
   window.scrollTo(0, 0);
 }
@@ -937,6 +938,7 @@ function renderDiagnostico() {
   const escala = Math.max(...linhas.map((l) => Math.max(l.atual, l.meta)), 1);
 
   alvo.innerHTML = `
+    ${typeof cardLembretes === 'function' ? cardLembretes() : ''}
     ${typeof cardCaixas === 'function' ? cardCaixas() : ''}
     <div class="cols bloco">
       <div class="card">
@@ -1293,6 +1295,7 @@ function renderTudo() {
   if (typeof renderEvolucao === 'function') renderEvolucao();
   if (typeof renderAcompanhamento === 'function') renderAcompanhamento();
   if (typeof renderGestaoObjetivos === 'function') renderGestaoObjetivos();
+  if (typeof renderRotina === 'function') renderRotina();
   $('#resultado-plano').innerHTML = '';
 }
 
