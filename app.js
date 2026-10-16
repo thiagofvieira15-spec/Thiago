@@ -162,9 +162,22 @@ const preco = (a) => a.pa || a.pm;
 const valorAtivo = (a) => a.qtd * preco(a);
 const custoAtivo = (a) => a.qtd * a.pm;
 
-// Ativos da carteira de investimentos (a reserva de emergência fica fora da alocação)
-const investidos = () => estado.ativos.filter((a) => !a.reserva);
-const reservas = () => estado.ativos.filter((a) => a.reserva);
+// Três carteiras independentes: longo prazo (a única que entra na alocação, no risco e no plano),
+// objetivos de curto/médio prazo (carro, casamento...) e reserva de emergência
+const CAIXAS = { longo: 'Longo prazo', objetivos: 'Objetivos', reserva: 'Reserva de emergência' };
+const caixaDe = (a) => (CAIXAS[a.caixa] ? a.caixa : a.reserva ? 'reserva' : 'longo');
+const investidos = () => estado.ativos.filter((a) => caixaDe(a) === 'longo');
+const reservas = () => estado.ativos.filter((a) => caixaDe(a) === 'reserva');
+const ativosObjetivos = () => estado.ativos.filter((a) => caixaDe(a) === 'objetivos');
+
+// Peso do ativo dentro da classe (0 a 100; sem peso = 100, ou seja, pesos iguais)
+const pesoAtivo = (a) => (Number.isFinite(a.peso) ? a.peso : 100);
+// % ideal do ativo na carteira de longo prazo = meta da classe x peso / soma dos pesos da classe
+function idealAtivo(a, meta = alvoAjustado()?.final) {
+  if (!meta || caixaDe(a) !== 'longo') return null;
+  const soma = investidos().filter((x) => x.classe === a.classe).reduce((s, x) => s + pesoAtivo(x), 0);
+  return soma ? (meta[a.classe] * pesoAtivo(a)) / soma : 0;
+}
 
 function totais(ativos = investidos()) {
   const porClasse = Object.fromEntries(CLASSES.map((c) => [c.id, 0]));
@@ -361,7 +374,9 @@ $('#form-ativo').addEventListener('submit', (e) => {
     qtd: parseFloat($('#ativo-qtd').value),
     pm,
     pa: paBruto === '' ? pm : parseFloat(paBruto),
-    reserva: $('#ativo-reserva').checked || undefined,
+    caixa: $('#ativo-caixa').value,
+    peso: $('#ativo-peso').value === '' ? undefined : Math.max(0, Math.min(100, parseFloat($('#ativo-peso').value))),
+    travado: $('#ativo-travado').checked || undefined,
   };
   // Mantém os fundamentos já preenchidos ao editar
   estado.ativos = id ? estado.ativos.map((a) => (a.id === id ? { ...ativo, fund: a.fund } : a)) : [...estado.ativos, ativo];
@@ -388,7 +403,9 @@ function editar(id) {
   $('#ativo-qtd').value = a.qtd;
   $('#ativo-pm').value = a.pm;
   $('#ativo-pa').value = a.pa;
-  $('#ativo-reserva').checked = !!a.reserva;
+  $('#ativo-caixa').value = caixaDe(a);
+  $('#ativo-peso').value = Number.isFinite(a.peso) ? a.peso : '';
+  $('#ativo-travado').checked = !!a.travado;
   $('#form-titulo').textContent = `Editar ${a.nome}`;
   $('#cancelar-edicao').hidden = false;
   $('#form-ativo').scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -420,15 +437,18 @@ function renderCarteira() {
     <div class="kpi"><div class="rotulo">Total investido</div><div class="valor">${fmt(custo)}</div></div>
     <div class="kpi"><div class="rotulo">Resultado</div><div class="valor ${cls}">${fmt(resultado)}</div></div>
     <div class="kpi"><div class="rotulo">Rentabilidade</div><div class="valor ${cls}">${pct(rent, 2)}</div></div>
+    ${ativosObjetivos().length ? `<div class="kpi"><div class="rotulo">Objetivos (fora da alocação)</div><div class="valor">${fmt(totais(ativosObjetivos()).total)}</div></div>` : ''}
     ${reservas().length ? `<div class="kpi"><div class="rotulo">Reserva de emergência (fora da alocação)</div><div class="valor">${fmt(totais(reservas()).total)}</div></div>` : ''}`;
 
-  const ativos = [...estado.ativos].sort((a, b) => valorAtivo(b) - valorAtivo(a));
+  const ordemCaixa = { longo: 0, objetivos: 1, reserva: 2 };
+  const meta = alvoAjustado()?.final;
+  const ativos = [...estado.ativos].sort((a, b) => ordemCaixa[caixaDe(a)] - ordemCaixa[caixaDe(b)] || valorAtivo(b) - valorAtivo(a));
   $('#tabela-ativos tbody').innerHTML = ativos.map((a) => {
     const v = valorAtivo(a);
     const r = v - custoAtivo(a);
     const rp = custoAtivo(a) > 0 ? (r / custoAtivo(a)) * 100 : 0;
     return `<tr>
-      <td><strong>${esc(a.nome)}</strong>${a.reserva ? ' <span class="tag avaliar">Reserva</span>' : ''}</td>
+      <td><strong>${esc(a.nome)}</strong>${caixaDe(a) === 'reserva' ? ' <span class="tag avaliar">Reserva</span>' : caixaDe(a) === 'objetivos' ? ' <span class="tag comprar">Objetivos</span>' : ''}${a.travado ? ' <span class="tag manter">sem liquidez</span>' : ''}</td>
       <td>${classe(a.classe)?.curto || esc(a.classe)}</td>
       <td class="num">${num(a.qtd)}</td>
       <td class="num">${fmt(a.pm)}</td>
@@ -436,7 +456,8 @@ function renderCarteira() {
       <td class="num ${a.varDia > 0 ? 'pos' : a.varDia < 0 ? 'neg' : ''}">${Number.isFinite(a.varDia) && a.cotadoEm ? `${a.varDia > 0 ? '+' : ''}${pct(a.varDia, 2)}` : '—'}</td>
       <td class="num">${fmt(v)}</td>
       <td class="num ${r >= 0 ? 'pos' : 'neg'}">${fmt(r)} (${pct(rp)})</td>
-      <td class="num">${a.reserva ? '—' : pct(total ? (v / total) * 100 : 0)}</td>
+      <td class="num">${caixaDe(a) !== 'longo' ? '—' : pct(total ? (v / total) * 100 : 0)}</td>
+      <td class="num">${caixaDe(a) !== 'longo' || !meta ? '—' : `${pct(idealAtivo(a, meta), 2)}<br><span class="motivo">peso ${pesoAtivo(a)}</span>`}</td>
       <td>
         <button class="btn sec mini" data-acao="editar" data-id="${esc(a.id)}">Editar</button>
         <button class="btn perigo mini" data-acao="remover" data-id="${esc(a.id)}">Remover</button>
@@ -916,6 +937,7 @@ function renderDiagnostico() {
   const escala = Math.max(...linhas.map((l) => Math.max(l.atual, l.meta)), 1);
 
   alvo.innerHTML = `
+    ${typeof cardCaixas === 'function' ? cardCaixas() : ''}
     <div class="cols bloco">
       <div class="card">
         <h2>Nota da carteira</h2>
@@ -966,6 +988,8 @@ function renderDiagnostico() {
       <p class="dica">Para saber quanto vender e onde aplicar, use o <a href="#" data-ir="plano">Plano de ação</a>.</p>
     </div>
 
+    ${typeof cardPoda === 'function' ? cardPoda() : ''}
+
     ${typeof cardPerfilAcoes === 'function' ? cardPerfilAcoes() : ''}
 
     ${typeof cardRisco === 'function' ? cardRisco() : ''}
@@ -990,6 +1014,7 @@ function gerarPlano(aporte, permitirVendas, tol, reserva = 0) {
   const vendas = new Map(); // id -> { a, valor, motivo }
 
   const addVenda = (a, valor, motivo) => {
+    if (a.travado) return; // sem liquidez (ex.: CDB que só vence no fim): nunca sugere venda
     const max = valorAtivo(a) - (vendas.get(a.id)?.valor || 0);
     const v = Math.min(valor, max);
     if (v < 1) return;
@@ -1070,45 +1095,57 @@ function motivoSemAporte(a) {
   return null;
 }
 
-// Dentro da classe, direciona o dinheiro para os ativos menores, buscando pesos iguais,
-// só entre os que passam no filtro de qualidade. Ativos que estão sendo vendidos não recebem compras.
+// Dentro da classe, direciona o dinheiro para os ativos mais abaixo do seu % ideal (peso de 0 a 100),
+// só entre os que passam no filtro de qualidade. Ativos vendidos, com peso 0 ou sem liquidez não recebem compras.
 function distribuirNaClasse(classeId, valor, vendas) {
-  // Em renda fixa o que importa é o tipo de título, não igualar posições: sugere opções da classe
-  if (classe(classeId).rendaFixa) return [];
-  let ativos = investidos().filter((a) => a.classe === classeId && !vendas.has(a.id));
+  const rf = classe(classeId).rendaFixa;
+  let ativos = investidos().filter((a) => a.classe === classeId && !vendas.has(a.id) && !a.travado && pesoAtivo(a) > 0);
+  // Em renda fixa, só distribui entre títulos com peso definido (ex.: escada de vencimentos do IPCA+);
+  // sem pesos, o que importa é o tipo de título: o plano sugere opções da classe
+  if (rf) {
+    ativos = ativos.filter((a) => Number.isFinite(a.peso));
+    if (!ativos.length) return [];
+  }
   const excluidos = [];
-  const aprovados = ativos.filter((a) => {
-    const m = motivoSemAporte(a);
-    if (m) excluidos.push({ a, motivo: m });
-    return !m;
-  });
-  // Se ninguém passar no filtro, ao menos evita os de fundamentos fracos
-  if (aprovados.length) ativos = aprovados;
-  else {
-    excluidos.length = 0;
-    const saudaveis = ativos.filter((a) => avaliarFundamentos(a).nivel !== 'fraco');
-    if (saudaveis.length) ativos = saudaveis;
+  if (!rf) {
+    const aprovados = ativos.filter((a) => {
+      const m = motivoSemAporte(a);
+      if (m) excluidos.push({ a, motivo: m });
+      return !m;
+    });
+    // Se ninguém passar no filtro, ao menos evita os de fundamentos fracos
+    if (aprovados.length) ativos = aprovados;
+    else {
+      excluidos.length = 0;
+      const saudaveis = ativos.filter((a) => avaliarFundamentos(a).nivel !== 'fraco');
+      if (saudaveis.length) ativos = saudaveis;
+    }
   }
   if (!ativos.length || valor <= 0) return Object.assign([], { excluidos });
   const atuais = ativos.map((a) => ({ a, v: valorAtivo(a), add: 0 }));
-  const totalClasse0 = atuais.reduce((s, x) => s + x.v, 0);
-  atuais.forEach((x) => { x.pesoAntes = totalClasse0 ? (x.v / totalClasse0) * 100 : 0; });
-  // Ações e FIIs da B3: compra cota inteira, sempre no ativo com menor posição no momento
-  if (atuais.every((x) => TICKER_B3.test(x.a.nome) && preco(x.a) > 0)) {
+  const somaV = atuais.reduce((s, x) => s + x.v, 0);
+  const somaP = atuais.reduce((s, x) => s + pesoAtivo(x.a), 0);
+  const totalDepois = somaV + valor;
+  atuais.forEach((x) => {
+    x.pesoAntes = somaV ? (x.v / somaV) * 100 : 0;
+    x.alvo = (totalDepois * pesoAtivo(x.a)) / somaP;
+  });
+  // Ações e FIIs da B3: compra cota inteira, sempre no ativo mais longe (em %) do seu alvo
+  if (!rf && atuais.every((x) => TICKER_B3.test(x.a.nome) && preco(x.a) > 0)) {
     let caixa = valor;
     for (;;) {
       const cabe = atuais.filter((x) => preco(x.a) <= caixa);
       if (!cabe.length) break;
-      const menor = cabe.reduce((m, x) => (x.v + x.add < m.v + m.add ? x : m));
-      menor.add += preco(menor.a);
-      caixa -= preco(menor.a);
+      const falta = (x) => (x.alvo - x.v - x.add) / x.alvo;
+      const mais = cabe.reduce((m, x) => (falta(x) > falta(m) ? x : m));
+      mais.add += preco(mais.a);
+      caixa -= preco(mais.a);
     }
     return Object.assign(atuais.filter((x) => x.add > 0).sort((p, q) => q.add - p.add), { excluidos, sobra: caixa });
   }
-  const alvoIgual = (atuais.reduce((s, x) => s + x.v, 0) + valor) / atuais.length;
-  const faltas = atuais.map((x) => Math.max(0, alvoIgual - x.v));
+  const faltas = atuais.map((x) => Math.max(0, x.alvo - x.v));
   const somaF = faltas.reduce((s, f) => s + f, 0);
-  atuais.forEach((x, i) => { x.add = somaF > 0 ? (faltas[i] / somaF) * valor : valor / atuais.length; });
+  atuais.forEach((x, i) => { x.add = somaF > 0 ? (faltas[i] / somaF) * valor : (valor * pesoAtivo(x.a)) / somaP; });
   return Object.assign(atuais.filter((x) => x.add >= 1).sort((p, q) => q.add - p.add), { excluidos });
 }
 
@@ -1131,13 +1168,19 @@ $('#form-plano').addEventListener('submit', (e) => {
     saida.innerHTML = '<div class="card"><p class="neg">A alocação-base precisa somar 100%. Ajuste na aba Perfil.</p></div>';
     return;
   }
-  const aporte = parseFloat($('#valor-aporte').value) || 0;
+  const salario = parseFloat($('#valor-aporte').value) || 0;
+  const proventos = parseFloat($('#valor-proventos').value) || 0;
+  const campoObj = $('#valor-objetivos').value;
+  const paraObjetivos = Math.min(salario, campoObj === '' ? (typeof aporteObjetivoAtual === 'function' ? aporteObjetivoAtual() : 0) : parseFloat(campoObj) || 0);
+  // Proventos podem ser reinvestidos só nos FIIs (ex.: "bola de neve" dos fundos de papel)
+  const proventosFiis = $('#proventos-fiis').checked ? proventos : 0;
+  const aporte = salario + proventos - proventosFiis - paraObjetivos;
   const permitir = $('#permitir-vendas').checked;
   const tol = parseFloat($('#tolerancia').value) || 0;
   const reserva = parseFloat($('#reserva-valor').value) || 0;
   estado.reservaValor = reserva;
   salvar();
-  if (aporte <= 0 && !permitir) {
+  if (aporte <= 0 && !permitir && !paraObjetivos) {
     saida.innerHTML = '<div class="card"><p>Informe um aporte ou marque "Permitir vendas" para rebalancear.</p></div>';
     return;
   }
@@ -1147,12 +1190,28 @@ $('#form-plano').addEventListener('submit', (e) => {
   }
 
   const p = gerarPlano(aporte, permitir, tol, reserva);
+  if (proventosFiis > 0) {
+    const ativosFii = distribuirNaClasse('fiis', proventosFiis, new Map(p.vendas.map((v) => [v.a.id, v])));
+    const cFii = classe('fiis');
+    const existente = p.compras.find((cp) => cp.c.id === 'fiis');
+    if (existente) {
+      // Junta com o que o plano já mandava para FIIs
+      existente.valor += proventosFiis;
+      existente.ativos = distribuirNaClasse('fiis', existente.valor, new Map(p.vendas.map((v) => [v.a.id, v])));
+    } else p.compras.push({ c: cFii, valor: proventosFiis, ativos: ativosFii, proventos: true });
+    p.caixa += proventosFiis;
+    p.final.fiis += proventosFiis;
+  }
   const { porClasse, total } = totais();
 
   saida.innerHTML = `
     ${reservaIncompleta() ? '<div class="alerta">Sua reserva de emergência não está completa. Considere direcionar o aporte primeiro para Tesouro Selic ou CDB com liquidez diária até completá-la.</div>' : ''}
+    ${paraObjetivos > 0 ? (() => {
+      const prox = typeof projetarObjetivos === 'function' ? projetarObjetivos().find((x) => x.n > 0) : null;
+      return `<div class="card"><h2>Objetivos: ${fmt(paraObjetivos)}</h2><p style="margin:0">${prox ? `Para <strong>${esc(prox.o.nome)}</strong> (${prox.n} meses). ${veiculoObjetivo(prox.n)}` : 'Aplique com liquidez diária.'}</p></div>`;
+    })() : ''}
     <div class="resumo">
-      <div class="kpi"><div class="rotulo">Aporte</div><div class="valor">${fmt(aporte)}</div></div>
+      <div class="kpi"><div class="rotulo">Aporte no longo prazo</div><div class="valor">${fmt(aporte)}</div>${proventos ? `<div class="motivo">${proventosFiis ? `+ ${fmt(proventosFiis)} de proventos nos FIIs` : `inclui ${fmt(proventos)} de proventos`}</div>` : ''}</div>
       <div class="kpi"><div class="rotulo">Vendas sugeridas</div><div class="valor ${p.totalVendas ? 'neg' : ''}">${fmt(p.totalVendas)}</div></div>
       <div class="kpi"><div class="rotulo">Total para comprar</div><div class="valor pos">${fmt(p.caixa)}</div></div>
     </div>
@@ -1173,6 +1232,12 @@ $('#form-plano').addEventListener('submit', (e) => {
         </tr>`;
         }).join('')}</tbody>
       </table></div>
+      ${(() => {
+        if (typeof escudoFiscal !== 'function') return '';
+        const vendAcoes = p.vendas.filter((v) => tipoAtivo(v.a) === 'acao').reduce((s, v) => s + v.valor, 0);
+        const ef = escudoFiscal();
+        return vendAcoes ? `<p class="${vendAcoes > ef.livre ? 'alerta' : 'dica'}">Vendas de ações neste plano: ${fmt(vendAcoes)}. Limite isento ainda livre no mês: ${fmt(ef.livre)}.${vendAcoes > ef.livre ? ' Passaria do limite de R$ 20 mil: divida as vendas entre dois meses.' : ''}</p>` : '';
+      })()}
       <p class="dica">Se o imposto for alto, você pode apenas parar de aportar nesses ativos e rebalancear aos poucos com os aportes.</p>`
       : '<p class="ok">Nenhuma venda necessária: a carteira está dentro da tolerância.</p>'}
     </div>` : ''}
@@ -1180,7 +1245,7 @@ $('#form-plano').addEventListener('submit', (e) => {
     <div class="card">
       <h2>${permitir ? '2. ' : ''}Comprar / aportar</h2>
       ${p.compras.length ? p.compras.map((cp) => `
-        <h3><span style="color:${cp.c.cor}">●</span> ${cp.c.nome}: ${fmt(cp.valor)}</h3>
+        <h3><span style="color:${cp.c.cor}">●</span> ${cp.c.nome}: ${fmt(cp.valor)}${cp.proventos ? ' <span class="motivo">(proventos reinvestidos)</span>' : ''}</h3>
         ${cp.ativos.length ? `<div class="tabela-wrap"><table>
           <thead><tr><th>Ativo</th><th class="num">Valor</th><th class="num">Preço atual</th><th class="num">Qtd aprox.</th></tr></thead>
           <tbody>${cp.ativos.map((x) => `<tr>
@@ -1227,6 +1292,7 @@ function renderTudo() {
   if (typeof renderIA === 'function') renderIA();
   if (typeof renderEvolucao === 'function') renderEvolucao();
   if (typeof renderAcompanhamento === 'function') renderAcompanhamento();
+  if (typeof renderGestaoObjetivos === 'function') renderGestaoObjetivos();
   $('#resultado-plano').innerHTML = '';
 }
 

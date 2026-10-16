@@ -45,8 +45,17 @@
       <div class="card">
         <h2>Plano de ação</h2>
         <form id="form-plano" class="grade-form">
-          <label>Aporte deste mês (R$)
+          <label>Aporte do salário (R$)
             <input id="valor-aporte" type="number" step="any" min="0" placeholder="0">
+          </label>
+          <label>Proventos recebidos no mês (R$)
+            <input id="valor-proventos" type="number" step="any" min="0" placeholder="0">
+          </label>
+          <label class="check">
+            <input type="checkbox" id="proventos-fiis" checked> Proventos voltam para os FIIs (para os mais abaixo do % ideal)
+          </label>
+          <label>Separar para objetivos (R$)
+            <input id="valor-objetivos" type="number" step="any" min="0" placeholder="aporte mensal dos objetivos">
           </label>
           <label>Tolerância de desvio (pontos %)
             <input id="tolerancia" type="number" step="0.5" min="0" value="5">
@@ -59,7 +68,7 @@
           </label>
           <div class="acoes-form"><button class="btn" type="submit">Gerar plano</button></div>
         </form>
-        <p class="dica">Sem vendas, o aporte vai para as classes mais abaixo da meta e, dentro de cada classe, para os ativos com menor peso que tenham boa nota (pesos iguais). Com vendas, também são indicados ativos para reduzir ou vender: concentrações excessivas e classes muito acima da meta.</p>
+        <p class="dica">Primeiro sai a parcela dos objetivos (carro, casamento...). O resto, somado aos proventos, vai para as classes da carteira de longo prazo mais abaixo da meta e, dentro de cada classe, para os ativos mais abaixo do seu % ideal que tenham boa nota. Com vendas, também são indicados ativos para reduzir ou vender: concentrações excessivas e classes muito acima da meta.</p>
       </div>
       <div id="resultado-plano"></div>
     </section>
@@ -91,6 +100,7 @@
     <!-- CARTEIRA -->
     <section id="carteira" class="painel">
       <div class="resumo" id="resumo"></div>
+      <div id="objetivos-conteudo"></div>
 
       <div class="card">
         <h2>Cotações e indicadores</h2>
@@ -148,15 +158,25 @@
           <label>Preço atual (R$)
             <input id="ativo-pa" type="number" step="any" min="0" placeholder="Igual ao médio se vazio">
           </label>
+          <label>Carteira
+            <select id="ativo-caixa">
+              <option value="longo">Longo prazo</option>
+              <option value="objetivos">Objetivos (curto/médio prazo)</option>
+              <option value="reserva">Reserva de emergência</option>
+            </select>
+          </label>
+          <label>Peso na classe (0 a 100)
+            <input id="ativo-peso" type="number" step="1" min="0" max="100" placeholder="100 (pesos iguais)">
+          </label>
           <label class="check">
-            <input type="checkbox" id="ativo-reserva"> É minha reserva de emergência
+            <input type="checkbox" id="ativo-travado"> Sem liquidez (não sugerir venda)
           </label>
           <div class="acoes-form">
             <button type="submit" class="btn">Salvar</button>
             <button type="button" class="btn sec" id="cancelar-edicao" hidden>Cancelar</button>
           </div>
         </form>
-        <p class="dica">Para renda fixa, use quantidade 1: o preço médio é o valor aplicado e o preço atual é o saldo de hoje. Marque "reserva de emergência" no título que guarda sua reserva: ele aparece na lista, mas fica fora da alocação e nunca é sugerido para venda.</p>
+        <p class="dica">Para renda fixa, use quantidade 1: o preço médio é o valor aplicado e o preço atual é o saldo de hoje. Só a carteira de <strong>longo prazo</strong> entra na alocação, no risco e no plano; <strong>objetivos</strong> e <strong>reserva</strong> ficam à parte. O peso (0 a 100) define o % ideal do ativo dentro da classe: % ideal = meta da classe × peso ÷ soma dos pesos da classe. Peso 0 = não recebe aportes.</p>
       </div>
 
       <div class="card">
@@ -166,7 +186,7 @@
             <thead>
               <tr>
                 <th>Ativo</th><th>Classe</th><th class="num">Qtd</th><th class="num">P. médio</th>
-                <th class="num">P. atual</th><th class="num">Dia</th><th class="num">Total</th><th class="num">Resultado</th><th class="num">% carteira</th><th></th>
+                <th class="num">P. atual</th><th class="num">Dia</th><th class="num">Total</th><th class="num">Resultado</th><th class="num">% carteira</th><th class="num">% ideal</th><th></th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -213,6 +233,7 @@
   <script src="app.js"></script>
   <script src="mercado.js"></script>
   <script src="estilo.js"></script>
+  <script src="caixas.js"></script>
   <script src="risco.js"></script>
   <script src="evolucao.js"></script>
   <script src="ia.js"></script>

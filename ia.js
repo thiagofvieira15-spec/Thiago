@@ -31,6 +31,20 @@ function dadosParaIA(aporte) {
     aporteDoMes: aporte || null,
     notaAderencia: dg.nota,
     ajusteMetasPeloCenario: modoCenario(),
+    carteiras: {
+      longoPrazo: r2(total),
+      objetivos: r2(totais(ativosObjetivos()).total),
+      reserva: r2(totais(reservas()).total),
+      metaReserva: estado.metaReserva || null,
+      ativosObjetivos: ativosObjetivos().map((a) => ({ ativo: a.nome, valor: r2(valorAtivo(a)) })),
+      ativosReserva: reservas().map((a) => ({ ativo: a.nome, valor: r2(valorAtivo(a)) })),
+    },
+    objetivos: typeof projetarObjetivos === 'function' ? projetarObjetivos().map((p) => ({
+      objetivo: p.o.nome, valor: p.o.valor, mes: p.o.data, meses: p.n, aporteMensal: p.o.aporte,
+      saldoInicio: r2(p.inicio), projetadoNaData: r2(p.futuro), aporteNecessario: r2(p.necessario) })) : [],
+    vendasDoMes: typeof vendasDoMes === 'function' ? vendasDoMes().map((v) => ({ data: v.data.slice(0, 10), ativo: v.ativo, valor: v.valor, lucro: v.lucro })) : [],
+    limiteIsencaoLivre: typeof escudoFiscal === 'function' ? r2(escudoFiscal().livre) : null,
+    prejuizoCompensavel: typeof escudoFiscal === 'function' ? r2(escudoFiscal().prejuizo) : null,
     meta: estado.meta || null,
     risco: (() => {
       const r = typeof analisarRisco === 'function' ? analisarRisco() : null;
@@ -64,6 +78,9 @@ function dadosParaIA(aporte) {
         ativo: a.nome,
         classe: classe(a.classe).nome,
         pesoPct: r2(peso),
+        pesoNaClasse: pesoAtivo(a),
+        idealPct: r2(idealAtivo(a)),
+        semLiquidez: a.travado || undefined,
         resultadoPct: r2(custoAtivo(a) ? (valorAtivo(a) / custoAtivo(a) - 1) * 100 : 0),
         acaoSugeridaPeloSite: acao,
         motivo,

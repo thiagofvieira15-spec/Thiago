@@ -42,11 +42,37 @@ function parametrosCarteira() {
   return { ret, vol: Math.sqrt(varA) * 100 };
 }
 
+// "2028: 5000; 2030: 4000" -> [{ano, valor}] em ordem
+function lerFases(txt) {
+  return String(txt || '').split(/[;\n]+/).map((p) => p.match(/(\d{4})\s*[:=]\s*(-?[\d.,]+)/)).filter(Boolean)
+    .map((m) => ({ ano: +m[1], valor: Number(m[2].replace(/\./g, '').replace(',', '.')) })).sort((a, b) => a.ano - b.ano);
+}
+
+// Aporte de cada mês da simulação: o valor base, trocado pelas fases da carreira (ex.: promoções)
+function aportesPorMes(base, meses, fases) {
+  const ano0 = new Date().getFullYear(), mes0 = new Date().getMonth();
+  return Array.from({ length: meses }, (_, i) => {
+    const ano = ano0 + Math.floor((mes0 + i + 1) / 12);
+    let v = base;
+    for (const f of fases) if (ano >= f.ano) v = f.valor;
+    return v;
+  });
+}
+
 function simular(inicial, aporte, anos, caminhos = 1500) {
   const { ret, vol } = parametrosCarteira();
   const s = vol / 100 / Math.sqrt(12);
   const m = Math.log(1 + ret / 100) / 12 - (s * s) / 2;
   const meses = Math.round(anos * 12);
+  const m0 = estado.meta || {};
+  // aporte pode ser um número (extra sobre o cronograma) ou o cronograma completo
+  const cron = aportesPorMes(m0.aporte || 0, meses, lerFases(m0.fases));
+  const ano0 = new Date().getFullYear(), mes0 = new Date().getMonth();
+  const retiradas = lerFases(m0.retiradas);
+  const saidaNoMes = Array.from({ length: meses }, (_, i) => {
+    const ano = ano0 + Math.floor((mes0 + i + 1) / 12), mes = (mes0 + i + 1) % 12;
+    return mes === 0 ? retiradas.filter((r) => r.ano === ano).reduce((t, r) => t + r.valor, 0) : 0;
+  });
   const z = aleatorio(42);
   const porAno = Array.from({ length: Math.ceil(anos) + 1 }, () => []);
   const finais = [];
@@ -54,19 +80,27 @@ function simular(inicial, aporte, anos, caminhos = 1500) {
     let v = inicial;
     porAno[0].push(v);
     for (let i = 1; i <= meses; i++) {
-      v = v * Math.exp(m + s * z()) + aporte;
+      v = Math.max(0, v * Math.exp(m + s * z()) + cron[i - 1] + aporte - saidaNoMes[i - 1]);
       if (i % 12 === 0) porAno[i / 12].push(v);
     }
     if (meses % 12) porAno[porAno.length - 1].push(v);
     finais.push(v);
   }
   const q = (arr, p) => { const o = arr.slice().sort((a, b) => a - b); return o[Math.min(o.length - 1, Math.floor(p * o.length))]; };
-  return { ret, vol, finais, q, curva: porAno.map((v, i) => ({ ano: i, p10: q(v, 0.1), p50: q(v, 0.5), p90: q(v, 0.9) })) };
+  return { ret, vol, finais, q, aplicado: inicial + cron.reduce((t, x) => t + x + aporte, 0), curva: porAno.map((v, i) => ({ ano: i, p10: q(v, 0.1), p50: q(v, 0.5), p90: q(v, 0.9) })) };
 }
 
 function aporteNecessario(inicial, meta, anos, chance) {
   let lo = 0, hi = Math.max(meta / (anos * 12), 100);
-  const ok = (ap) => { const r = simular(inicial, ap, anos, 400); return r.finais.filter((v) => v >= meta).length / r.finais.length >= chance; };
+  // Sem fases, procura o aporte mensal total; com fases da carreira, o extra sobre o cronograma
+  const semFases = !lerFases(estado.meta?.fases).length;
+  const salvo = estado.meta?.aporte;
+  const ok = (ap) => {
+    if (semFases && estado.meta) estado.meta.aporte = 0;
+    const r = simular(inicial, ap, anos, 400);
+    if (semFases && estado.meta) estado.meta.aporte = salvo;
+    return r.finais.filter((v) => v >= meta).length / r.finais.length >= chance;
+  };
   if (ok(0)) return 0;
   while (!ok(hi) && hi < 1e7) hi *= 2;
   for (let i = 0; i < 22; i++) { const mid = (lo + hi) / 2; if (ok(mid)) hi = mid; else lo = mid; }
@@ -80,17 +114,17 @@ function renderMetas() {
   const { total } = totais();
   let resultado = '';
   if (m.valor > 0 && m.anos > 0 && total > 0) {
-    const r = simular(total, m.aporte || 0, m.anos);
+    const r = simular(total, 0, m.anos);
     const chance = (r.finais.filter((v) => v >= m.valor).length / r.finais.length) * 100;
     const fim = r.curva[r.curva.length - 1];
     const ap50 = aporteNecessario(total, m.valor, m.anos, 0.5);
     const ap80 = aporteNecessario(total, m.valor, m.anos, 0.8);
-    const investido = total + (m.aporte || 0) * m.anos * 12;
+    const investido = r.aplicado;
     resultado = `
       <div class="resumo">
         <div class="kpi"><div class="rotulo">Chance de chegar lá</div><div class="valor ${chance >= 70 ? 'pos' : chance < 40 ? 'neg' : ''}">${f1(chance)}%</div><div class="motivo">${chance >= 80 ? 'no caminho certo' : chance >= 50 ? 'possível, mas sem folga' : 'precisa de ajuste'}</div></div>
         <div class="kpi"><div class="rotulo">Cenário mediano em ${m.anos} anos</div><div class="valor">${reais0(fim.p50)}</div><div class="motivo">você terá aplicado ${reais0(investido)}</div></div>
-        <div class="kpi"><div class="rotulo">Aporte para 80% de chance</div><div class="valor">${reais0(ap80)}</div><div class="motivo">por mês · para 50%: ${reais0(ap50)}</div></div>
+        <div class="kpi"><div class="rotulo">${lerFases(m.fases).length ? 'Aporte extra para 80% de chance' : 'Aporte para 80% de chance'}</div><div class="valor">${reais0(lerFases(m.fases).length ? ap80 : ap80 + 0)}</div><div class="motivo">por mês${lerFases(m.fases).length ? ', além do cronograma' : ''} · para 50%: ${reais0(ap50)}</div></div>
       </div>
       <div class="viz-caixa" id="metas-grafico"></div>
       <div class="viz-legenda"><span><span class="viz-amostra" style="background:var(--serie-1)"></span>Mediano</span><span><span class="viz-amostra" style="background:var(--serie-2)"></span>Pessimista (1 em 10 fica abaixo)</span></div>
@@ -98,7 +132,7 @@ function renderMetas() {
         <thead><tr><th>Em</th><th class="num">Pessimista</th><th class="num">Mediano</th><th class="num">Otimista</th></tr></thead>
         <tbody>${r.curva.filter((x, i, arr) => i && (i % Math.max(1, Math.round(arr.length / 6)) === 0 || i === arr.length - 1)).map((x) => `<tr><td>${x.ano} ano(s)</td><td class="num">${moedaCurta(x.p10)}</td><td class="num">${moedaCurta(x.p50)}</td><td class="num">${moedaCurta(x.p90)}</td></tr>`).join('')}</tbody>
       </table></div>
-      <p class="dica">Valores em reais de hoje (já descontada a inflação), com a sua alocação-base e os aportes corrigidos pela inflação. Premissas acima da inflação: renda fixa pós 4,5% a.a., IPCA+ ${f1(premissasClasses().rf_ipca.ret)}%, ações 6%, FIIs 5%, internacional 5,5%, cripto 5% (muito incerta). Carteira: ${f1(r.ret)}% a.a. esperado, oscilação de ${f1(r.vol)}% a.a. São premissas, não promessas.</p>`;
+      <p class="dica">Valores em reais de hoje (já descontada a inflação), com a sua alocação-base, os aportes corrigidos pela inflação e as mudanças de aporte e retiradas que você informou. Premissas acima da inflação: renda fixa pós 4,5% a.a., IPCA+ ${f1(premissasClasses().rf_ipca.ret)}%, ações 6%, FIIs 5%, internacional 5,5%, cripto 5% (muito incerta). Carteira: ${f1(r.ret)}% a.a. esperado, oscilação de ${f1(r.vol)}% a.a. São premissas, não promessas.</p>`;
     setTimeout(() => {
       const caixa = $('#metas-grafico');
       if (!caixa || typeof graficoLinhas !== 'function') return;
@@ -113,7 +147,9 @@ function renderMetas() {
       <label>Objetivo<input id="meta-nome" type="text" placeholder="Ex.: aposentadoria" value="${esc(m.nome || '')}"></label>
       <label>Quanto quer ter (R$ de hoje)<input id="meta-valor" type="number" min="0" step="1000" value="${m.valor || ''}" required></label>
       <label>Em quantos anos<input id="meta-anos" type="number" min="1" max="60" step="1" value="${m.anos || ''}" required></label>
-      <label>Aporte mensal (R$)<input id="meta-aporte" type="number" min="0" step="50" value="${m.aporte ?? ''}"></label>
+      <label>Aporte mensal hoje (R$)<input id="meta-aporte" type="number" min="0" step="50" value="${m.aporte ?? ''}"></label>
+      <label>Mudanças no aporte (opcional)<input id="meta-fases" type="text" placeholder="Ex.: 2028: 5000; 2030: 4000" value="${esc(m.fases || '')}"></label>
+      <label>Retiradas planejadas (opcional)<input id="meta-retiradas" type="text" placeholder="Ex.: 2035: 600000" value="${esc(m.retiradas || '')}"></label>
       <div class="acoes-form"><button class="btn" type="submit">Projetar</button></div>
     </form>
     ${resultado || (total ? '<p class="dica">Informe o valor e o prazo do seu objetivo para ver a projeção.</p>' : '<p class="dica">Cadastre a carteira primeiro.</p>')}
@@ -128,6 +164,8 @@ document.addEventListener('submit', (e) => {
     valor: Number($('#meta-valor').value) || 0,
     anos: Number($('#meta-anos').value) || 0,
     aporte: Number($('#meta-aporte').value) || 0,
+    fases: $('#meta-fases').value.trim(),
+    retiradas: $('#meta-retiradas').value.trim(),
   };
   salvar();
   renderMetas();
