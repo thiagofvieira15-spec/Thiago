@@ -189,3 +189,10 @@ code { background: var(--bg); padding: 1px 4px; border-radius: 4px; }
 .selo { display: inline-block; min-width: 18px; padding: 0 5px; border-radius: 999px; background: var(--negativo); color: #fff; font-size: 0.7rem; line-height: 18px; text-align: center; margin-left: 4px; }
 ul.pontos li input[type=checkbox] { margin-top: 3px; }
 ul.pontos li .btn.mini { align-self: flex-start; margin-left: auto; }
+.linha-tempo { border-left: 2px solid var(--borda); margin-left: 6px; padding-left: 14px; }
+.marco-ano { position: relative; padding-bottom: 12px; }
+.marco-ano::before { content: ""; position: absolute; left: -20px; top: 5px; width: 10px; height: 10px; border-radius: 50%; background: var(--serie-1); }
+.marco-ano .ano { font-weight: 700; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.texto-motivo { font-size: 0.9rem; margin: 4px 0; }
+.editar-motivo { margin-bottom: 8px; }
+.editar-motivo textarea { margin: 6px 0; }

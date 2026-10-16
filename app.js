@@ -349,6 +349,8 @@ function abrirAba(id) {
   if (id === 'cenario') renderCenario();
   if (id === 'analise') renderAnalise();
   if (id === 'rotina' && typeof renderRotina === 'function') renderRotina();
+  if (id === 'cronograma' && typeof renderCronograma === 'function') renderCronograma();
+  if (id === 'estrategia' && typeof renderEstrategia === 'function') renderEstrategia();
   if (id === 'evolucao' && typeof renderEvolucao === 'function') renderEvolucao();
   window.scrollTo(0, 0);
 }
@@ -1296,6 +1298,7 @@ function renderTudo() {
   if (typeof renderAcompanhamento === 'function') renderAcompanhamento();
   if (typeof renderGestaoObjetivos === 'function') renderGestaoObjetivos();
   if (typeof renderRotina === 'function') renderRotina();
+  if (typeof renderPlanejamento === 'function') renderPlanejamento();
   $('#resultado-plano').innerHTML = '';
 }
 
