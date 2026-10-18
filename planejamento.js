@@ -175,12 +175,13 @@ function renderEstrategia() {
       <p style="margin-top:0">Meta <strong>${pct(meta?.[c.id] || 0)}</strong> do longo prazo · hoje ${pct(atual)} (${fmt(porClasse[c.id])})</p>
       ${blocoEditavel(`classe_${c.id}`, mot[`classe_${c.id}`] || MOTIVO_PADRAO[c.id])}
       ${ativos.length ? `<div class="tabela-wrap"><table>
-        <thead><tr><th>Ativo</th><th class="num">Peso</th><th class="num">Da classe</th><th class="num">% ideal</th><th class="num">Hoje</th></tr></thead>
+        <thead><tr><th>Ativo</th><th class="num">Peso</th><th class="num">Da classe</th><th class="num">% ideal</th><th class="num">Hoje</th><th></th></tr></thead>
         <tbody>${ativos.map((a) => {
           const hoje = total ? (valorAtivo(a) / total) * 100 : 0, ideal = idealAtivo(a, meta) || 0;
           return `<tr><td>${esc(a.nome)}${a.travado ? ' <span class="motivo">sem liquidez</span>' : ''}${typeof estiloDe === 'function' && tipoAtivo(a) === 'acao' ? `<br><span class="motivo">${estiloDe(fundAtivo(a))}${typeof ehEstatal === 'function' && ehEstatal(a.nome) ? ' · estatal' : ''}</span>` : tipoAtivo(a) === 'fii' && typeof tipoFII === 'function' ? `<br><span class="motivo">${tipoFII(a)}</span>` : ''}</td>
             <td class="num">${pesoAtivo(a)}</td><td class="num">${pct(somaP ? (pesoAtivo(a) / somaP) * 100 : 0)}</td>
-            <td class="num">${pct(ideal, 2)}</td><td class="num ${hoje > ideal * 1.25 && ideal ? 'neg' : hoje < ideal * 0.75 ? 'pos' : ''}">${pct(hoje, 2)}</td></tr>`;
+            <td class="num">${pct(ideal, 2)}</td><td class="num ${hoje > ideal * 1.25 && ideal ? 'neg' : hoje < ideal * 0.75 ? 'pos' : ''}">${pct(hoje, 2)}</td>
+            <td title="${(() => { const z = typeof sinalAtivo === 'function' ? sinalAtivo(a, meta, total) : null; return z ? esc(z.motivo) : ''; })()}">${(() => { const z = typeof sinalAtivo === 'function' ? sinalAtivo(a, meta, total) : null; return z ? ICONE_SINAL[z.cor] : ''; })()}</td></tr>`;
         }).join('')}</tbody></table></div>` : ''}
     </div>`;
   }).join('')}

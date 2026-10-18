@@ -60,19 +60,60 @@ function aliquotaVenda(a) {
   return { ir: 0.15, nota: '15% sobre o lucro' };
 }
 
-function acimaDoIdeal() {
+// Semáforo de poda (bandas 5/25 + trava do preço-teto), para cada ativo do longo prazo:
+//  verde   = desvio de peso <= -15% e preço abaixo do teto (ações): prioridade de compra
+//  amarelo = desvio >= +25% E preço > teto x 1,05 (ações), ou desvio >= +50% em qualquer caso: vender só o excesso
+//  branco  = o resto (inclui quem subiu com os fundamentos, ainda abaixo do teto: congela aportes, não vende)
+// Banda de outros ativos: renda fixa +20% (ex.: Renda+ acima de 30% da escada de 4), ETF/cripto 5/25 (5 p.p. ou 25%,
+// o que for menor). FIIs nunca recebem sinal de venda por lucro (20% de IR): só congelam aportes.
+const BANDA = { compra: -15, poda: 25, teto: 50, folgaTeto: 1.05, rf: 20 };
+
+function sinalAtivo(a, meta = alvoAjustado()?.final, total = totais().total) {
+  const ideal = idealAtivo(a, meta);
+  if (!ideal || !total || a.travado) return null;
+  const atual = (valorAtivo(a) / total) * 100;
+  const desvio = ((atual - ideal) / ideal) * 100;
+  const tipo = tipoAtivo(a);
+  const v = tipo === 'acao' ? valuation(a) : null;
+  const teto = v ? tetoMaior(v) : 0;
+  const vsTeto = teto ? (preco(a) / teto - 1) * 100 : null;
+  const excesso = ((atual - ideal) / 100) * total;
+  const lucroFrac = preco(a) > 0 ? Math.max(0, (preco(a) - a.pm) / preco(a)) : 0;
+  const { ir, nota } = aliquotaVenda(a);
+  const base = { a, ideal, atual, desvio, teto, vsTeto, excesso, imposto: Math.max(0, excesso) * lucroFrac * ir, nota };
+  let cor = 'branco', motivo = 'Dentro da faixa normal (-15% a +25% do ideal): não faça nada.';
+  if (tipo === 'acao') {
+    if (desvio >= BANDA.teto) { cor = 'amarelo'; motivo = `Passou de +${BANDA.teto}% do peso ideal: reduzir para controlar o risco, mesmo sendo boa.`; }
+    else if (desvio >= BANDA.poda && teto && preco(a) > teto * BANDA.folgaTeto) { cor = 'amarelo'; motivo = `Peso ${f1(desvio)}% acima do ideal e preço ${f1(vsTeto)}% acima do preço-teto: vender só o excesso.`; }
+    else if (desvio >= BANDA.poda) { motivo = `Peso ${f1(desvio)}% acima do ideal, mas ${teto ? 'ainda perto ou abaixo do preço-teto' : 'sem preço-teto calculado'}: subiu com os fundamentos. Não vender; congelar aportes.`; }
+    else if (desvio <= BANDA.compra && (!teto || preco(a) < teto)) { cor = 'verde'; motivo = `Peso ${f1(-desvio)}% abaixo do ideal${teto ? ' e abaixo do preço-teto' : ''}: prioridade de compra.`; }
+    else if (desvio <= BANDA.compra) { motivo = `Peso abaixo do ideal, mas acima do preço-teto: compra sem pressa.`; }
+  } else if (tipo === 'fii') {
+    if (desvio <= BANDA.compra) { cor = 'verde'; motivo = `Peso ${f1(-desvio)}% abaixo do ideal: prioridade para aportes e proventos.`; }
+    else if (desvio >= BANDA.poda) { motivo = `Peso ${f1(desvio)}% acima do ideal: congelar aportes. Não vender (lucro em FII paga 20% de IR); o rebalanceamento vem dos outros FIIs.`; }
+  } else {
+    const limite = classe(a.classe).rendaFixa ? BANDA.rf : Math.min(BANDA.poda, (5 / ideal) * 100);
+    if (desvio >= limite) { cor = 'amarelo'; motivo = classe(a.classe).rendaFixa ? `Peso ${f1(desvio)}% acima do ideal (mais de ${BANDA.rf}%): colher a marcação a mercado e voltar ao ideal.` : `Passou da banda 5/25 (${f1(atual - ideal)} p.p. acima): vender o excesso.`; }
+    else if (desvio <= BANDA.compra) { cor = 'verde'; motivo = `Peso ${f1(-desvio)}% abaixo do ideal: prioridade de aporte.`; }
+  }
+  // Quanto vender para voltar ao % ideal
+  let qtd = null;
+  if (cor === 'amarelo' && excesso > 0) {
+    qtd = TICKER_B3.test(a.nome) && preco(a) > 0 ? Math.floor(excesso / preco(a)) : null;
+  }
+  return { ...base, cor, motivo, qtd };
+}
+
+function semaforo() {
   const meta = alvoAjustado()?.final;
   const { total } = totais();
   if (!meta || !total) return [];
-  return investidos().filter((a) => !a.travado).map((a) => {
-    const ideal = idealAtivo(a, meta);
-    const atual = (valorAtivo(a) / total) * 100;
-    const excesso = ((atual - ideal) / 100) * total;
-    const lucroFrac = preco(a) > 0 ? Math.max(0, (preco(a) - a.pm) / preco(a)) : 0;
-    const { ir, nota } = aliquotaVenda(a);
-    return { a, ideal, atual, excesso, imposto: excesso * lucroFrac * ir, nota };
-  }).filter((x) => x.ideal > 0 && x.atual > x.ideal * 1.25 && x.atual - x.ideal >= 0.5)
-    .sort((x, y) => y.excesso - x.excesso);
+  return investidos().map((a) => sinalAtivo(a, meta, total)).filter(Boolean);
+}
+
+// Compatível com o quadro antigo: só os que pedem venda
+function acimaDoIdeal() {
+  return semaforo().filter((x) => x.cor === 'amarelo').sort((x, y) => y.excesso - x.excesso);
 }
 
 // ---------- Escudo fiscal ----------
@@ -118,20 +159,43 @@ function cardCaixas() {
   </div>`;
 }
 
+const ICONE_SINAL = { verde: '🟢', branco: '⚪', amarelo: '🟡' };
+
 function cardPoda() {
-  const lista = acimaDoIdeal();
+  const lista = semaforo();
   if (!lista.length) return '';
+  const vender = lista.filter((x) => x.cor === 'amarelo').sort((x, y) => y.excesso - x.excesso);
+  const comprar = lista.filter((x) => x.cor === 'verde').sort((x, y) => x.desvio - y.desvio);
+  const ef = escudoFiscal();
+  const vendaAcoes = vender.filter((x) => tipoAtivo(x.a) === 'acao').reduce((s, x) => s + (x.qtd ? x.qtd * preco(x.a) : 0), 0);
+  // Classes inteiras: regra de +5 p.p. absolutos
+  const dg = diagnosticar(5);
+  const classes = dg.linhas.filter((l) => l.meta > 0 && l.atual - l.meta >= 5);
   return `<div class="card">
-    <h2>Acima do % ideal</h2>
-    <div class="tabela-wrap"><table>
-      <thead><tr><th>Ativo</th><th class="num">Hoje</th><th class="num">Ideal</th><th class="num">Excesso</th><th>Imposto se vender</th></tr></thead>
-      <tbody>${lista.map((x) => `<tr>
+    <h2>Quando vender (bandas 5/25 + preço-teto)</h2>
+    ${vender.length ? `<h3>🟡 Vender o excesso</h3><div class="tabela-wrap"><table>
+      <thead><tr><th>Ativo</th><th class="num">Hoje / ideal</th><th class="num">Desvio</th><th class="num">Vender</th><th>Por quê</th></tr></thead>
+      <tbody>${vender.map((x) => `<tr>
         <td><strong>${esc(x.a.nome)}</strong></td>
-        <td class="num">${pct(x.atual, 2)}</td><td class="num">${pct(x.ideal, 2)}</td>
-        <td class="num">${fmt(x.excesso)}</td>
-        <td class="motivo">${x.imposto >= 1 ? `~${fmt(x.imposto)} (${esc(x.nota)})` : esc(x.nota)}</td></tr>`).join('')}</tbody>
+        <td class="num">${pct(x.atual, 2)}<br><span class="motivo">${pct(x.ideal, 2)}</span></td>
+        <td class="num neg">+${f1(x.desvio)}%</td>
+        <td class="num">${x.qtd != null ? `<strong>${x.qtd}</strong> un.<br><span class="motivo">${fmt(x.qtd * preco(x.a))}</span>` : `<strong>${fmt(x.excesso)}</strong>`}</td>
+        <td class="motivo">${esc(x.motivo)}${x.imposto >= 1 ? ` IR estimado ~${fmt(x.imposto)}.` : ''}</td></tr>`).join('')}</tbody>
     </table></div>
-    <p class="dica">Mais de 25% acima do % ideal. Primeiro pare de aportar nesses ativos; venda só se o excesso for grande ou se fizer parte do plano (ex.: colher a marcação a mercado de um título IPCA+ longo e mandar o líquido para os objetivos).</p>
+    ${vendaAcoes ? `<p class="${vendaAcoes > ef.livre ? 'alerta' : 'dica'}">Vendas de ações sugeridas: ${fmt(vendaAcoes)}. Limite isento livre no mês: ${fmt(ef.livre)}.${vendaAcoes > ef.livre ? ' Divida entre dois meses para não pagar IR.' : ' Fica isento.'}</p>` : ''}
+    <p class="dica">Venda só o excesso, para voltar ao % ideal, e use o dinheiro na compra mais atrasada (🟢). Nunca zere uma ação por ter subido; zerar só se a empresa piorar.</p>`
+    : '<p class="ok" style="margin-top:0">Nenhum ativo no ponto de venda. Ações só são vendidas com peso 25% acima do ideal e preço acima do preço-teto (ou 50% acima do ideal em qualquer caso).</p>'}
+    ${classes.length ? `<p class="alerta">Classe inteira fora da banda (+5 p.p.): ${classes.map((l) => `${l.c.nome} ${pct(l.atual)} contra ${pct(l.meta)}`).join('; ')}.</p>` : ''}
+    ${comprar.length ? `<h3>🟢 Prioridade de compra</h3><p style="margin:0">${comprar.map((x) => `<strong>${esc(x.a.nome)}</strong> (${f1(x.desvio)}%)`).join(' · ')}</p>` : ''}
+    <details style="margin-top:10px"><summary class="dica">Semáforo de todos os ativos</summary>
+      <div class="tabela-wrap"><table>
+        <thead><tr><th></th><th>Ativo</th><th class="num">Desvio do ideal</th><th class="num">vs. preço-teto</th><th>Leitura</th></tr></thead>
+        <tbody>${lista.sort((x, y) => y.desvio - x.desvio).map((x) => `<tr><td>${ICONE_SINAL[x.cor]}</td><td>${esc(x.a.nome)}</td>
+          <td class="num ${x.desvio >= 25 ? 'neg' : x.desvio <= -15 ? 'pos' : ''}">${x.desvio > 0 ? '+' : ''}${f1(x.desvio)}%</td>
+          <td class="num">${x.vsTeto != null ? `${x.vsTeto > 0 ? '+' : ''}${f1(x.vsTeto)}%` : '—'}</td>
+          <td class="motivo">${esc(x.motivo)}</td></tr>`).join('')}</tbody>
+      </table></div>
+    </details>
   </div>`;
 }
 
