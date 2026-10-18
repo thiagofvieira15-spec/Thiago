@@ -1026,37 +1026,14 @@ function gerarPlano(aporte, permitirVendas, tol, reserva = 0) {
     vendas.set(a.id, { a, valor: (atual?.valor || 0) + v, motivo: atual ? `${atual.motivo} ${motivo}` : motivo });
   };
 
-  if (permitirVendas && total > 0) {
-    // 1) Ativos inadequados ou concentrados
-    for (const a of investidos()) {
-      const c = classe(a.classe);
-      if ((a.classe === 'cripto' && estado.perfil === 'conservador') || meta[a.classe] === 0) {
-        addVenda(a, valorAtivo(a), 'Classe fora do seu perfil.');
-        continue;
-      }
-      const limite = (LIMITE_CONCENTRACAO / 100) * novoTotal;
-      if (!c.rendaFixa && !ehFundoDiversificado(a) && valorAtivo(a) > limite) {
-        addVenda(a, valorAtivo(a) - limite, `Reduz concentração para ${LIMITE_CONCENTRACAO}% da carteira.`);
-      }
-    }
-    // 2) Classes muito acima da meta: vende o excesso, começando pelos maiores ativos
-    for (const c of CLASSES) {
-      const ativos = investidos().filter((a) => a.classe === c.id);
-      const restante = ativos.reduce((s, a) => s + valorAtivo(a) - (vendas.get(a.id)?.valor || 0), 0);
-      let excesso = restante - (meta[c.id] / 100) * novoTotal;
-      // A reserva de emergência (em RF pós) nunca é vendida
-      if (c.id === 'rf_pos') excesso = Math.min(excesso, restante - reserva);
-      if (excesso > (tol / 100) * novoTotal) {
-        let falta = excesso;
-        const ordenados = [...ativos].sort((x, y) => valorAtivo(y) - valorAtivo(x));
-        for (const a of ordenados) {
-          if (falta < 1) break;
-          const disp = valorAtivo(a) - (vendas.get(a.id)?.valor || 0);
-          // Distribui proporcionalmente ao tamanho de cada posição
-          const parte = Math.min(disp, (disp / restante) * excesso);
-          addVenda(a, parte, `${c.curto} acima da ${rotuloMeta(true).toLowerCase()}.`);
-          falta -= parte;
-        }
+  // Vendas seguem só o semáforo: 🟡 vender o excesso (bandas 5/25 + preço-teto) e 🔴 venda total
+  // por perda de fundamentos. Queda de preço, FIIs com lucro e ativos sem liquidez nunca entram.
+  if (permitirVendas && total > 0 && typeof semaforo === 'function') {
+    for (const x of semaforo()) {
+      if (x.cor === 'vermelho') addVenda(x.a, valorAtivo(x.a), `🔴 ${x.motivo}`);
+      else if (x.cor === 'amarelo') {
+        const valor = x.qtd != null ? x.qtd * preco(x.a) : x.excesso;
+        if (valor >= 1) addVenda(x.a, valor, `🟡 ${x.motivo}`);
       }
     }
   }
@@ -1231,7 +1208,7 @@ $('#form-plano').addEventListener('submit', (e) => {
           return `<tr>
           <td><strong>${esc(v.a.nome)}</strong></td>
           <td class="num">${fmt(v.valor)}</td>
-          <td class="num">${classe(v.a.classe).rendaFixa ? '—' : num(Math.ceil(v.valor / preco(v.a)))}</td>
+          <td class="num">${classe(v.a.classe).rendaFixa ? '—' : TICKER_B3.test(v.a.nome) ? num(Math.round(v.valor / preco(v.a))) : f2(v.valor / preco(v.a))}</td>
           <td class="motivo">${esc(v.motivo)}</td>
           <td class="motivo">${lucro > 0 ? `Lucro estimado de ${fmt(lucro)}. ` : 'Sem lucro nesta venda. '}${notaIR(v.a)}</td>
         </tr>`;
