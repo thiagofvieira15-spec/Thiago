@@ -1240,6 +1240,7 @@ $('#form-plano').addEventListener('submit', (e) => {
         ${cp.ativos.sobra >= 1 ? `<p class="dica">Sobram ${fmt(cp.ativos.sobra)} (não completam uma cota): deixe na renda fixa pós e use no próximo aporte.</p>` : ''}
         ${cp.ativos.excluidos?.length ? `<p class="dica">Sem aporte agora: ${cp.ativos.excluidos.map((x) => `${esc(x.a.nome)} (${esc(x.motivo)})`).join(', ')}.</p>` : ''}
         <p class="dica">Ou diversifique com: ${CATALOGO[cp.c.id].map((i) => esc(i[0])).join(' · ')}</p>`
+        : !cp.c.rendaFixa && investidos().some((a) => a.classe === cp.c.id) ? `<p class="dica">${cp.ativos.excluidos?.length && !cp.ativos.sobra ? `Nenhum ativo da classe passou no filtro de qualidade (${cp.ativos.excluidos.map((x) => `${esc(x.a.nome)}: ${esc(x.motivo)}`).join('; ')}).` : `Valor pequeno demais para comprar uma cota: deixe na renda fixa pós e some ao próximo aporte.`}</p>`
         : `<p class="dica">${cp.c.rendaFixa ? 'Escolha o título com a melhor taxa disponível na sua corretora. Opções:' : 'Você não tem ativos nesta classe. Opções:'}</p>
           ${CATALOGO[cp.c.id].map(([n, d]) => `<div class="sugestao"><strong>${esc(n)}</strong><span class="motivo">${esc(d)}</span></div>`).join('')}`}
       `).join('') : '<p>Nada a comprar.</p>'}
