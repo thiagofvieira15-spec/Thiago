@@ -1089,6 +1089,7 @@ function gerarPlano(aporte, permitirVendas, tol, reserva = 0) {
 // Devolve o motivo quando o ativo fica de fora.
 const NOTA_MINIMA_APORTE = 6;
 function motivoSemAporte(a) {
+  if (typeof deterioracao === 'function' && deterioracao(a).length >= 2) return 'perda de fundamentos (venda total)';
   const av = avaliarFundamentos(a);
   if (av.nota != null && av.nota < NOTA_MINIMA_APORTE) return `nota ${f1(av.nota)}/10`;
   if (tipoAtivo(a) === 'acao') {
