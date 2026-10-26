@@ -102,7 +102,8 @@ function sinalAtivo(a, meta = alvoAjustado()?.final, total = totais().total) {
   const ruins = deterioracao(a);
   const caiu = preco(a) < a.pm;
   const f = fundAtivo(a);
-  const saudavel = tipo === 'acao' && caiu && (!teto || preco(a) < teto) && (f.roe >= 15 || f.dy >= 6);
+  const queda = (1 - preco(a) / a.pm) * 100;
+  const saudavel = tipo === 'acao' && queda >= 3 && (!teto || preco(a) < teto) && (f.roe >= 15 || f.dy >= 6);
   if (tipo === 'acao' && ruins.length >= 2) {
     cor = 'vermelho';
     motivo = `Perda de qualidade (${ruins.length} sinais): ${ruins.join('; ')}. Revisar a tese e vender 100%, trocando por uma empresa sólida abaixo do teto.`;
@@ -113,16 +114,19 @@ function sinalAtivo(a, meta = alvoAjustado()?.final, total = totais().total) {
     else if (desvio <= BANDA.compra && (!teto || preco(a) < teto)) { cor = 'verde'; motivo = `Peso ${f1(-desvio)}% abaixo do ideal${teto ? ' e abaixo do preço-teto' : ''}: prioridade de compra.`; }
     else if (desvio <= BANDA.compra) { motivo = `Peso abaixo do ideal, mas acima do preço-teto: compra sem pressa.`; }
     // Queda saudável: caiu abaixo do preço médio, mas continua barata e rentável. Nunca vender.
-    if (saudavel && cor !== 'amarelo') motivo = `Queda saudável: ${f1((preco(a) / a.pm - 1) * 100)}% abaixo do seu preço médio, mas abaixo do preço-teto e com ${f.roe >= 15 ? `ROE de ${f1(f.roe)}%` : `dividend yield de ${f1(f.dy)}%`}. Não vender; ${cor === 'verde' ? 'oportunidade de compra' : 'compre se o peso cair mais'}.`;
+    if (saudavel && cor !== 'amarelo') motivo = `Queda saudável: ${f1(queda)}% abaixo do seu preço médio, mas abaixo do preço-teto e com ${f.roe >= 15 ? `ROE de ${f1(f.roe)}%` : `dividend yield de ${f1(f.dy)}%`}. Não vender; ${cor === 'verde' ? 'oportunidade de compra' : 'compre se o peso cair mais'}.`;
     if (ruins.length === 1 && cor !== 'amarelo') motivo += ` Atenção: ${ruins[0]} (1 sinal; com 2, vira venda total).`;
   } else if (tipo === 'fii') {
     if (desvio <= BANDA.compra) { cor = 'verde'; motivo = `Peso ${f1(-desvio)}% abaixo do ideal: prioridade para aportes e proventos.`; }
     else if (desvio >= BANDA.poda) { motivo = `Peso ${f1(desvio)}% acima do ideal: congelar aportes. Não vender (lucro em FII paga 20% de IR); o rebalanceamento vem dos outros FIIs.`; }
   } else {
-    const limite = classe(a.classe).rendaFixa ? BANDA.rf : Math.min(BANDA.poda, (5 / ideal) * 100);
-    if (desvio >= limite) { cor = 'amarelo'; motivo = classe(a.classe).rendaFixa ? `Peso ${f1(desvio)}% acima do ideal (mais de ${BANDA.rf}%): colher a marcação a mercado e voltar ao ideal.` : `Passou da banda 5/25 (${f1(atual - ideal)} p.p. acima): vender o excesso.`; }
+    // Cripto oscila demais para a banda de 25%: só vende com +50% do ideal
+    const limite = classe(a.classe).rendaFixa ? BANDA.rf : a.classe === 'cripto' ? BANDA.teto : Math.min(BANDA.poda, (5 / ideal) * 100);
+    if (desvio >= limite) { cor = 'amarelo'; motivo = classe(a.classe).rendaFixa ? `Peso ${f1(desvio)}% acima do ideal (mais de ${BANDA.rf}%): colher a marcação a mercado e voltar ao ideal.` : a.classe === 'cripto' ? `Passou de +${BANDA.teto}% do ideal: vender o excesso.` : `Passou da banda 5/25 (${f1(atual - ideal)} p.p. acima): vender o excesso.`; }
     else if (desvio <= BANDA.compra) { cor = 'verde'; motivo = `Peso ${f1(-desvio)}% abaixo do ideal: prioridade de aporte.`; }
   }
+  // Aportes congelados pelo usuário: nunca vira prioridade de compra
+  if (a.congelado && cor === 'verde') { cor = 'branco'; motivo = `Abaixo do ideal (${f1(desvio)}%), mas com aportes congelados por você: mantém sem comprar.`; }
   // Quanto vender para voltar ao % ideal
   let qtd = null;
   if (cor === 'amarelo' && excesso > 0) {

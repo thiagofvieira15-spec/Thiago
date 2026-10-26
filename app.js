@@ -380,6 +380,7 @@ $('#form-ativo').addEventListener('submit', (e) => {
     caixa: $('#ativo-caixa').value,
     peso: $('#ativo-peso').value === '' ? undefined : Math.max(0, Math.min(100, parseFloat($('#ativo-peso').value))),
     travado: $('#ativo-travado').checked || undefined,
+    congelado: $('#ativo-congelado').checked || undefined,
   };
   // Mantém os fundamentos já preenchidos ao editar
   estado.ativos = id ? estado.ativos.map((a) => (a.id === id ? { ...ativo, fund: a.fund } : a)) : [...estado.ativos, ativo];
@@ -409,6 +410,7 @@ function editar(id) {
   $('#ativo-caixa').value = caixaDe(a);
   $('#ativo-peso').value = Number.isFinite(a.peso) ? a.peso : '';
   $('#ativo-travado').checked = !!a.travado;
+  $('#ativo-congelado').checked = !!a.congelado;
   $('#form-titulo').textContent = `Editar ${a.nome}`;
   $('#cancelar-edicao').hidden = false;
   $('#form-ativo').scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -451,7 +453,7 @@ function renderCarteira() {
     const r = v - custoAtivo(a);
     const rp = custoAtivo(a) > 0 ? (r / custoAtivo(a)) * 100 : 0;
     return `<tr>
-      <td><strong>${esc(a.nome)}</strong>${caixaDe(a) === 'reserva' ? ' <span class="tag avaliar">Reserva</span>' : caixaDe(a) === 'objetivos' ? ' <span class="tag comprar">Objetivos</span>' : ''}${a.travado ? ' <span class="tag manter">sem liquidez</span>' : ''}</td>
+      <td><strong>${esc(a.nome)}</strong>${caixaDe(a) === 'reserva' ? ' <span class="tag avaliar">Reserva</span>' : caixaDe(a) === 'objetivos' ? ' <span class="tag comprar">Objetivos</span>' : ''}${a.travado ? ' <span class="tag manter">sem liquidez</span>' : ''}${a.congelado ? ' <span class="tag manter">aportes congelados</span>' : ''}</td>
       <td>${classe(a.classe)?.curto || esc(a.classe)}</td>
       <td class="num">${num(a.qtd)}</td>
       <td class="num">${fmt(a.pm)}</td>
@@ -1066,6 +1068,7 @@ function gerarPlano(aporte, permitirVendas, tol, reserva = 0) {
 // Devolve o motivo quando o ativo fica de fora.
 const NOTA_MINIMA_APORTE = 6;
 function motivoSemAporte(a) {
+  if (a.congelado) return 'aportes congelados por você';
   if (typeof deterioracao === 'function' && deterioracao(a).length >= 2) return 'perda de fundamentos (venda total)';
   const av = avaliarFundamentos(a);
   if (av.nota != null && av.nota < NOTA_MINIMA_APORTE) return `nota ${f1(av.nota)}/10`;
@@ -1081,7 +1084,7 @@ function motivoSemAporte(a) {
 // só entre os que passam no filtro de qualidade. Ativos vendidos, com peso 0 ou sem liquidez não recebem compras.
 function distribuirNaClasse(classeId, valor, vendas) {
   const rf = classe(classeId).rendaFixa;
-  let ativos = investidos().filter((a) => a.classe === classeId && !vendas.has(a.id) && !a.travado && pesoAtivo(a) > 0);
+  let ativos = investidos().filter((a) => a.classe === classeId && !vendas.has(a.id) && !a.travado && pesoAtivo(a) > 0 && (!a.congelado || !classe(classeId).rendaFixa));
   // Em renda fixa, só distribui entre títulos com peso definido (ex.: escada de vencimentos do IPCA+);
   // sem pesos, o que importa é o tipo de título: o plano sugere opções da classe
   if (rf) {
@@ -1208,7 +1211,7 @@ $('#form-plano').addEventListener('submit', (e) => {
           return `<tr>
           <td><strong>${esc(v.a.nome)}</strong></td>
           <td class="num">${fmt(v.valor)}</td>
-          <td class="num">${classe(v.a.classe).rendaFixa ? '—' : TICKER_B3.test(v.a.nome) ? num(Math.round(v.valor / preco(v.a))) : f2(v.valor / preco(v.a))}</td>
+          <td class="num">${classe(v.a.classe).rendaFixa ? '—' : TICKER_B3.test(v.a.nome) ? num(Math.round(v.valor / preco(v.a))) : (v.valor / preco(v.a)).toLocaleString('pt-BR', { maximumSignificantDigits: 3 })}</td>
           <td class="motivo">${esc(v.motivo)}</td>
           <td class="motivo">${lucro > 0 ? `Lucro estimado de ${fmt(lucro)}. ` : 'Sem lucro nesta venda. '}${notaIR(v.a)}</td>
         </tr>`;
