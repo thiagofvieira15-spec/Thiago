@@ -40,6 +40,10 @@ function dadoMercado(ticker) {
   if (MERCADO.fiis?.[t]) return { tipo: 'fii', d: MERCADO.fiis[t] };
   if (MERCADO.etfs?.[t]) return { tipo: 'etf', d: MERCADO.etfs[t] };
   // ETFs americanos: cotação em dólar convertida pelo dólar do cenário
+  if (MERCADO.cripto?.[ticker]) {
+    const c = MERCADO.cripto[ticker];
+    return { tipo: 'etf', d: { preco: Math.round(c.precoUSD * cenario().dolar * 100) / 100, varDia: c.varDia } };
+  }
   if (MERCADO.etfsEUA?.[ticker]) {
     const e = MERCADO.etfsEUA[ticker];
     return { tipo: 'etf', d: { preco: Math.round(e.precoUSD * cenario().dolar * 100) / 100, varDia: e.varDia } };

@@ -105,7 +105,7 @@ const CAMPOS_CENARIO = [
   ['pibFocusAno', 'PIB esperado no ano (%)', 'number'],
   ['dolar', 'Dólar atual (R$)', 'number'],
   ['dolarFocusFimAno', 'Dólar esperado fim do ano (R$)', 'number'],
-  ['riscoEleitoral', 'Período eleitoral / risco político', 'bool'],
+  ['riscoEleitoral', 'Risco político / fiscal elevado', 'bool'],
   ['fedFunds', 'Juros nos EUA – Fed Funds (%)', 'number'],
   ['tendenciaFed', 'Tendência do Fed', ['corte', 'estavel', 'alta']],
   ['inflacaoEUA', 'Inflação nos EUA (%)', 'number'],
@@ -289,8 +289,8 @@ function sinaisCenario(cx = cenario()) {
 
   if (cx.riscoEleitoral) {
     sinais.push({
-      titulo: 'Período eleitoral / risco político',
-      texto: 'Eleições costumam trazer volatilidade forte em bolsa, juros e câmbio. Evite perseguir ralis. Mantenha liquidez e faça compras em etapas.',
+      titulo: 'Risco político e fiscal elevado',
+      texto: 'Incerteza sobre as contas públicas e a política econômica pesa sobre bolsa, juros e câmbio. Evite decisões no impulso: rebalanceie pelas regras e compre em etapas.',
       efeitos: { acoes: -2, rf_pos: 2 },
     });
   }
@@ -905,7 +905,7 @@ function diagnosticar(tol = 5) {
   const nFiis = investidos().filter((a) => a.classe === 'fiis').length;
   if (nFiis > 0 && nFiis < 3) alertas.push(`Só ${nFiis} FII(s). Diversifique entre ao menos 3 fundos de segmentos distintos.`);
   const cx = cenario();
-  if (cx.riscoEleitoral && porId.acoes.desvio > 0) alertas.push('Ações acima da meta em período eleitoral. Após um rali forte, considere realizar parte do lucro.');
+  if (cx.riscoEleitoral && porId.acoes.desvio > 0) alertas.push('Ações acima da meta com risco político elevado. Siga o semáforo: venda só o que estiver na regra.');
   if (porId.rf_pre.atual > 0 && (cx.ipca12m > cx.tetoMetaIpca)) alertas.push('Com inflação acima do teto, prefixados correm o risco de perder para a inflação se ela continuar subindo. Evite aumentar essa posição.');
 
   return { linhas, nota, acoes, inclusoes, alertas, total };

@@ -633,6 +633,50 @@ def alertas(anterior, atual):
     return out
 
 
+def cotacoes_b3_do_dia(resultado, liq_acoes=500_000, liq_fiis=100_000):
+    """A Fundamentus só atualiza a cotação uma vez por dia (de madrugada). Aqui pega o preço do pregão
+    na API da B3 (atraso de ~15 min) e ajusta P/L, P/VP e dividend yield ao preço novo."""
+    from concurrent.futures import ThreadPoolExecutor
+    alvos = [(parte, t) for parte, minimo in (("acoes", liq_acoes), ("fiis", liq_fiis))
+             for t, d in (resultado.get(parte) or {}).items() if (d.get("liq") or 0) >= minimo]
+
+    def busca(par):
+        try:
+            return par, etf_b3(par[1])
+        except Exception:
+            return par, None
+
+    ok = 0
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        for (parte, t), q in ex.map(busca, alvos):
+            if not q or not q.get("preco"):
+                continue
+            d = resultado[parte][t]
+            antigo, novo = d.get("preco"), q["preco"]
+            if not antigo or not (0.5 < novo / antigo < 2):
+                continue  # salto absurdo: provavelmente erro da fonte
+            f = novo / antigo
+            for k in ("pl", "pvp"):
+                if d.get(k):
+                    d[k] = round(d[k] * f, 2)
+            if d.get("dy"):
+                d["dy"] = round(d["dy"] / f, 2)
+            d["preco"] = round(novo, 2)
+            if q.get("varDia") is not None:
+                d["varDia"] = q["varDia"]
+            ok += 1
+    print(f"cotações do dia (B3): {ok} de {len(alvos)} ativos")
+    return ok
+
+
+def cripto():
+    """Bitcoin em dólar (Kraken, sem cadastro). O site converte para reais."""
+    d = json.loads(baixar("https://api.kraken.com/0/public/Ticker?pair=XBTUSD"))
+    r = next(iter(d["result"].values()))
+    preco, abertura = float(r["c"][0]), float(r["o"])
+    return {"BTC": {"precoUSD": round(preco, 2), "varDia": round((preco / abertura - 1) * 100, 2)}}
+
+
 def main():
     anterior = {}
     if SAIDA.exists():
@@ -650,6 +694,16 @@ def main():
             resultado[nome] = anterior.get(nome, {})
             resultado["fontes"][nome] = anterior.get("fontes", {}).get(nome, fonte) + " (dados anteriores)"
     try:
+        if cotacoes_b3_do_dia(resultado):
+            resultado["fontes"]["cotacoes"] = "B3 (pregão, atraso de ~15 min)"
+    except Exception as e:
+        print(f"ERRO nas cotações do dia: {e}", file=sys.stderr)
+    try:
+        resultado["cripto"] = cripto()
+    except Exception as e:
+        print(f"ERRO em cripto: {e}", file=sys.stderr)
+        resultado["cripto"] = anterior.get("cripto", {})
+    try:
         if resultado.get("acoes"):
             resultado["setores"] = setores(resultado["acoes"], anterior.get("acoes", {})) or anterior.get("setores", {})
     except Exception as e:
@@ -662,7 +716,8 @@ def main():
         print(f"ERRO em dividendos: {e}", file=sys.stderr)
         resultado["dividendos"] = anterior.get("dividendos", {})
     try:
-        resultado["macro"] = macro() or anterior.get("macro", {})
+        # Se um indicador falhar hoje (ex.: PTAX), mantém o último valor conhecido em vez de deixar sem
+        resultado["macro"] = {**(anterior.get("macro") or {}), **(macro() or {})}
     except Exception as e:
         print(f"ERRO em macro: {e}", file=sys.stderr)
         resultado["macro"] = anterior.get("macro", {})
